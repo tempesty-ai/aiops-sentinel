@@ -169,6 +169,8 @@ if __name__ == "__main__":
 
     if args.eval:
         run_eval()
+        if args.report:
+            run_report()
     elif args.report:
         run_report()
     else:

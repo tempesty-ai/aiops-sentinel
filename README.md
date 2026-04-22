@@ -37,7 +37,7 @@
 | 구분 | 기술 |
 |------|------|
 | 언어 | Python 3.11+ |
-| AI/LLM | LangChain + Ollama (llama3.1:70b) |
+| AI/LLM | LangChain + Ollama (llama3.1:8b) |
 | 알람 | Mattermost Incoming Webhook |
 | 품질 평가 | DeepEval (Agentic AI Eval Framework) |
 | 데이터 | Mock APM (InterMax 구조 기반) |
@@ -48,7 +48,7 @@
 
 ```bash
 # Ollama 설치 후 모델 다운로드
-ollama pull llama3.1:70b
+ollama pull llama3.1:8b
 
 # Python 패키지 설치
 pip install -r requirements.txt
@@ -107,12 +107,20 @@ ERROR [DataCollector] Connection refused to target host
 
 Agentic AI 평가 프레임워크(DeepEval)를 활용하여 AI 분석 품질을 자동으로 측정합니다.
 
+### 커스텀 메트릭 (50%)
 | 평가 지표 | 설명 |
 |-----------|------|
 | 장애유형 분류 정확도 | 예상 장애유형과 일치 여부 |
 | 키워드 포함율 | 분석에 필수 키워드 포함 여부 |
 | 응답 완결성 | 원인/조치/예방 3요소 포함 여부 |
-| 종합 품질 점수 | 가중 평균 |
+
+### DeepEval 메트릭 (50%)
+| 평가 지표 | 설명 |
+|-----------|------|
+| Hallucination | AI가 근거 없는 내용을 생성하지 않는 비율 |
+| Answer Relevancy | 질문(장애 상황)과 관련성 있는 답변 비율 |
+| Faithfulness | 실제 모니터링 데이터 기반으로 답변한 비율 |
+| 종합 품질 점수 | 커스텀 50% + DeepEval 50% 가중 평균 |
 
 ## 프로젝트 구조
 
