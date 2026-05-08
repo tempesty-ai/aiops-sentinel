@@ -26,3 +26,15 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Secrets
+.env.*
+!.env.example
+
+# Local cache & logs
+.deepeval_cache/
+*.log
+
+# Mock outputs
+mock_output/
+reports/*.html

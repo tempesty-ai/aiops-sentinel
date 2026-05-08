@@ -23,7 +23,7 @@ class AnomalyResult:
 
 class AnomalyDetector:
     """
-    InterMax와 동일한 임계값 기반 이상 감지 로직
+    MockAPM와 동일한 임계값 기반 이상 감지 로직
     감지된 이상 상황을 AI 분석용 텍스트로 변환
     """
 

@@ -1,7 +1,20 @@
 """
-Mock APM 데이터 생성기
-InterMax에서 실제로 수집되는 WAS 모니터링 데이터 구조를 모방
+mock_generator.py - APM virtual data generator
+
+All data produced by this module, including host names, metrics, thresholds,
+and time-series patterns, is self-generated virtual data for learning and
+experimentation.
+It is not related to any commercial APM product, company or customer
+production environment, data schema, or operational secret.
+
+Host name examples use only clearly virtual identifiers such as
+'was_sample_01' and 'agent_sample_a'.
 """
+"""
+Mock APM 데이터 생성기
+MockAPM에서 실제로 수집되는 WAS 모니터링 데이터 구조를 모방
+"""
+
 import random
 import time
 from datetime import datetime
@@ -29,7 +42,7 @@ class APMSnapshot:
 
 class MockAPMGenerator:
     """
-    InterMax WAS 모니터링과 동일한 구조의 Mock 데이터 생성
+    MockAPM WAS 모니터링과 동일한 구조의 Mock 데이터 생성
     장애 시나리오를 주기적으로 주입하여 AI 분석 테스트 가능
     """
 
