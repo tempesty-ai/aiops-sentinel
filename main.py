@@ -6,6 +6,8 @@ Usage:
   py -3 main.py --eval
   py -3 main.py --eval --report
   py -3 main.py --eval --gate
+
+Exit codes: 0 pass, 2 quality gate failed, 3 config error, 4 gate inconclusive.
 """
 import argparse
 import io
@@ -132,14 +134,24 @@ def run_eval(generate_report: bool = False, enforce_gate: bool = False) -> int:
 
     print("\n[Eval] Summary")
     print(f"  overall_score: {report.overall_score:.0%}")
+    print(f"  dataset: {report.dataset_version} | prompt: {report.prompt_version}"
+          f" | analysis: {report.analysis_model} | judge: {report.judge_model}")
     if report.quality_gate:
-        state = "PASS" if report.quality_gate.passed else "FAIL"
-        print(f"  quality_gate: {state}")
-        if report.quality_gate.failed_rules:
-            print(f"  failed_rules: {', '.join(report.quality_gate.failed_rules)}")
+        gate = report.quality_gate
+        print(f"  quality_gate: {gate.status} ({gate.score:.0%} of checks certified)")
+        if gate.failed_rules:
+            print(f"  failed_rules: {', '.join(gate.failed_rules)}")
+        if gate.unmeasured_rules:
+            print(f"  unmeasured_rules: {', '.join(gate.unmeasured_rules)}")
+        if gate.insufficient_sample_rules:
+            thin = ", ".join(f"{r} (coverage {gate.coverage[r]:.0%})" for r in gate.insufficient_sample_rules)
+            print(f"  insufficient_sample_rules: {thin}")
+        if gate.status == "INCONCLUSIVE":
+            print("  -> INCONCLUSIVE means the metrics could not be certified, not that quality was bad.")
 
     if enforce_gate and report.quality_gate and not report.quality_gate.passed:
-        return 2
+        # 2 = a measured metric is below threshold, 4 = could not measure at all
+        return 2 if report.quality_gate.failed_rules else 4
     return 0
 
 

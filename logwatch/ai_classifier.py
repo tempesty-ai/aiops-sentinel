@@ -25,6 +25,8 @@ class LogAIClassification:
     recurrence: str
     recommended_action: str
     raw_response: str
+    llm_failed: bool = False          # every retry exhausted -> fallback text was used
+    error_type_missing: bool = False  # no parsable Error Type and no heuristic signal
 
 
 class LogAIClassifier:
@@ -39,10 +41,12 @@ class LogAIClassifier:
         self.retry_backoff_seconds = retry_backoff_seconds
 
     def classify(self, context: str) -> LogAIClassification:
-        raw = self._invoke_with_retry(context)
-        return self._parse_response(raw)
+        raw, llm_failed = self._invoke_with_retry(context)
+        result = self._parse_response(raw)
+        result.llm_failed = llm_failed
+        return result
 
-    def _invoke_with_retry(self, context: str) -> str:
+    def _invoke_with_retry(self, context: str) -> tuple[str, bool]:
         last_error = ""
         messages = [
             SystemMessage(content=SYSTEM_PROMPT),
@@ -54,12 +58,12 @@ class LogAIClassifier:
                 content = str(getattr(response, "content", "")).strip()
                 if not content:
                     raise ValueError("LLM returned empty content")
-                return content
+                return content, False
             except Exception as exc:  # pragma: no cover - runtime integration
                 last_error = f"{type(exc).__name__}: {exc}"
                 if attempt <= self.max_retries:
                     time.sleep(self.retry_backoff_seconds * attempt)
-        return self._fallback_response(last_error)
+        return self._fallback_response(last_error), True
 
     @staticmethod
     def _clean(text: str) -> str:
@@ -122,6 +126,7 @@ class LogAIClassifier:
             elif current_section == "recommended_action":
                 recommended_action.append(line)
 
+        error_type_missing = False
         if not error_type:
             raw_lower = raw.lower()
             if "connection" in raw_lower or "refused" in raw_lower or "timeout" in raw_lower:
@@ -132,6 +137,7 @@ class LogAIClassifier:
                 error_type = "Database error"
             else:
                 error_type = "Unknown"
+                error_type_missing = True
         if not recommended_action:
             recommended_action = ["Collect stack trace and verify service dependencies first."]
 
@@ -141,4 +147,5 @@ class LogAIClassifier:
             recurrence=recurrence,
             recommended_action="\n".join(recommended_action[:3]),
             raw_response=raw,
+            error_type_missing=error_type_missing,
         )

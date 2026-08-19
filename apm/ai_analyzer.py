@@ -8,18 +8,45 @@ import time
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from config.settings import OLLAMA_BASE_URL, OLLAMA_MODEL
+from config.settings import APM_PROMPT_VERSION, OLLAMA_BASE_URL, OLLAMA_MODEL
 
 
-SYSTEM_PROMPT = """You are a senior APM incident analyst.
-Return short, operational output with these exact sections:
+_SECTIONS = """Return short, operational output with these exact sections:
 1. Fault Type
 2. Root Cause
 3. Immediate Action
 4. Prevention
-5. Severity
+5. Severity"""
 
-Keep answers practical and concise."""
+# Prompt variants kept side by side so an A/B run changes one variable only.
+# Select with APM_PROMPT_VERSION; the active version is recorded in eval reports.
+APM_PROMPT_VERSIONS = {
+    # v1 - baseline. No instruction about grounding.
+    "v1": f"""You are a senior APM incident analyst.
+{_SECTIONS}
+
+Keep answers practical and concise.""",
+
+    # v2 - forces every claim to cite the metric it rests on, and forbids
+    # reasoning about metrics absent from the input.
+    "v2": f"""You are a senior APM incident analyst.
+{_SECTIONS}
+
+Ground every statement in the metrics you were given:
+- For each claim, cite the metric name and value it rests on, e.g. "cpu=92.5%".
+- Do not assert a cause that the given metrics do not support.
+- If a metric is not present in the input, do not reason about it at all.
+
+Keep answers practical and concise.""",
+}
+
+
+def get_system_prompt(version: str = "") -> str:
+    """Resolve a prompt variant, falling back to the baseline for unknown names."""
+    return APM_PROMPT_VERSIONS.get(version or APM_PROMPT_VERSION, APM_PROMPT_VERSIONS["v1"])
+
+
+SYSTEM_PROMPT = get_system_prompt()
 
 
 @dataclass
@@ -30,11 +57,15 @@ class AIAnalysisResult:
     prevention: str
     severity: str
     raw_response: str
+    llm_failed: bool = False          # every retry exhausted -> fallback text was used
+    fault_type_missing: bool = False  # no parsable Fault Type section in the response
 
 
 class APMAIAnalyzer:
 
-    def __init__(self, max_retries: int = 2, retry_backoff_seconds: float = 0.5):
+    def __init__(self, max_retries: int = 2, retry_backoff_seconds: float = 0.5, prompt_version: str = ""):
+        self.prompt_version = prompt_version or APM_PROMPT_VERSION
+        self.system_prompt = get_system_prompt(self.prompt_version)
         self._llm = ChatOllama(
             model=OLLAMA_MODEL,
             base_url=OLLAMA_BASE_URL,
@@ -44,13 +75,15 @@ class APMAIAnalyzer:
         self.retry_backoff_seconds = retry_backoff_seconds
 
     def analyze(self, context: str) -> AIAnalysisResult:
-        raw = self._invoke_with_retry(context)
-        return self._parse_response(raw)
+        raw, llm_failed = self._invoke_with_retry(context)
+        result = self._parse_response(raw)
+        result.llm_failed = llm_failed
+        return result
 
-    def _invoke_with_retry(self, context: str) -> str:
+    def _invoke_with_retry(self, context: str) -> tuple[str, bool]:
         last_error = ""
         messages = [
-            SystemMessage(content=SYSTEM_PROMPT),
+            SystemMessage(content=self.system_prompt),
             HumanMessage(content=f"Analyze the following APM anomaly context:\n\n{context}"),
         ]
 
@@ -60,13 +93,13 @@ class APMAIAnalyzer:
                 content = str(getattr(response, "content", "")).strip()
                 if not content:
                     raise ValueError("LLM returned empty content")
-                return content
+                return content, False
             except Exception as exc:  # pragma: no cover - runtime integration
                 last_error = f"{type(exc).__name__}: {exc}"
                 if attempt <= self.max_retries:
                     time.sleep(self.retry_backoff_seconds * attempt)
 
-        return self._fallback_response(last_error)
+        return self._fallback_response(last_error), True
 
     @staticmethod
     def _clean(text: str) -> str:
@@ -138,7 +171,8 @@ class APMAIAnalyzer:
             elif current_section == "severity" and not severity:
                 severity = line
 
-        if not fault_type:
+        fault_type_missing = not fault_type
+        if fault_type_missing:
             fault_type = "Unknown"
         if not root_cause:
             root_cause = ["No root-cause section was returned by the model."]
@@ -156,4 +190,5 @@ class APMAIAnalyzer:
             prevention="\n".join(prevention),
             severity=severity,
             raw_response=raw,
+            fault_type_missing=fault_type_missing,
         )

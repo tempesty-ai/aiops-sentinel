@@ -164,6 +164,8 @@ pip install -r requirements.txt
 ```
 cp .env.example .env
 # .env 파일에서 MATTERMOST_WEBHOOK_URL 설정
+# 평가를 쓸 경우 EVAL_JUDGE_MODEL을 OLLAMA_MODEL과 다른 모델로 지정
+# (같으면 피평가 모델이 자기 출력을 채점하며, 리포트에 self_grading=true로 기록됨)
 ```
 
 ### 3. 실행
@@ -177,7 +179,19 @@ python main.py --eval
 
 # HTML 리포트 생성
 python main.py --report
+
+# 품질 게이트를 CI 종료 코드로 강제 (0 통과 / 2 미달 / 3 설정오류 / 4 측정불가)
+python main.py --eval --gate
+
+# 프롬프트 A/B — 데이터셋·심판 모델을 고정하고 프롬프트만 바꿔 비교
+APM_PROMPT_VERSION=v1 python main.py --eval
+APM_PROMPT_VERSION=v2 python main.py --eval
+python -m eval.compare_runs
 ```
+
+평가 결과는 `reports/eval_result.json`(최신)과 `reports/history/eval_result_<timestamp>.json`(이력)에
+저장되며, 각 결과에는 데이터셋 버전·분석 모델·심판 모델·Ollama 버전이 함께 기록됩니다.
+자세한 게이트 규칙은 [QUALITY_GATE.md](QUALITY_GATE.md)를 참고하세요.
 
 ---
 
@@ -196,7 +210,10 @@ aiops-sentinel/
 ├── alert/
 │   └── mattermost.py        # Mattermost Webhook 알람
 ├── eval/
-│   ├── eval_suite.py        # DeepEval 품질 평가
+│   ├── datasets/
+│   │   └── golden_v1.json   # 레이블링된 골든셋 (코드와 분리, 버전 관리)
+│   ├── eval_suite.py        # DeepEval 품질 평가 + 품질 게이트
+│   ├── compare_runs.py      # 실행 간 회귀 비교 (프롬프트/심판 모델 A/B)
 │   └── report_generator.py  # HTML 리포트 생성
 ├── config/
 │   └── settings.py          # 설정 관리

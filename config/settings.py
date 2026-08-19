@@ -10,6 +10,15 @@ MATTERMOST_WEBHOOK_URL = os.getenv("MATTERMOST_WEBHOOK_URL", "").strip()
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").strip()
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:70b").strip()
 
+# Evaluation judge model.
+# Kept separate from OLLAMA_MODEL so the model under test is never its own judge.
+# Falls back to OLLAMA_MODEL when unset (documented self-grading mode).
+EVAL_JUDGE_MODEL = os.getenv("EVAL_JUDGE_MODEL", "").strip() or OLLAMA_MODEL
+
+# Prompt variant under test. Recorded in every eval report so a score change can
+# be attributed to the prompt rather than guessed at.
+APM_PROMPT_VERSION = os.getenv("APM_PROMPT_VERSION", "v1").strip() or "v1"
+
 # APM thresholds
 APM_CPU_THRESHOLD = float(os.getenv("APM_CPU_THRESHOLD", "80"))
 APM_RESPONSE_TIME_THRESHOLD = float(os.getenv("APM_RESPONSE_TIME_THRESHOLD", "2000"))
@@ -63,3 +72,18 @@ def validate_required_settings(require_mattermost: bool = False) -> None:
             + ", ".join(missing)
             + ". Update your .env file (see .env.example)."
         )
+
+
+def get_ollama_version() -> str:
+    """
+    Best-effort Ollama server version, recorded in eval reports for reproducibility.
+    Returns "unknown" when the server is unreachable.
+    """
+    try:
+        import requests
+
+        resp = requests.get(f"{OLLAMA_BASE_URL}/api/version", timeout=3)
+        resp.raise_for_status()
+        return str(resp.json().get("version", "unknown"))
+    except Exception:
+        return "unknown"

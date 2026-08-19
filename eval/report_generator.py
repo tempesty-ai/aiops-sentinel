@@ -68,12 +68,62 @@ def generate_html_report(
         overall = int(float(eval_data.get("overall_score", 0.0)) * 100)
 
         gate = eval_data.get("quality_gate") or {}
-        gate_passed = bool(gate.get("passed"))
-        gate_class = "pass" if gate_passed else "fail"
-        gate_label = "PASS" if gate_passed else "FAIL"
+        gate_label = str(gate.get("status") or ("PASS" if gate.get("passed") else "FAIL"))
+        gate_class = {"PASS": "pass", "INCONCLUSIVE": "warn"}.get(gate_label, "fail")
         failed_rules = gate.get("failed_rules", [])
         failed_text = ", ".join(failed_rules) if failed_rules else "-"
+        unmeasured_rules = gate.get("unmeasured_rules", [])
+        unmeasured_text = ", ".join(unmeasured_rules) if unmeasured_rules else "-"
+        thin_rules = gate.get("insufficient_sample_rules", [])
+        thin_text = ", ".join(thin_rules) if thin_rules else "-"
         metrics = gate.get("metrics", {})
+        sample_counts = gate.get("sample_counts", {})
+
+        def metric_text(key: str) -> str:
+            value = metrics.get(key)
+            if value is None:
+                return "not measured"
+            return f"{value} (n={sample_counts.get(key, '?')})"
+
+        meta = eval_data.get("run_metadata", {})
+        meta_bits = [
+            f"dataset={meta.get('dataset_version', 'n/a')}",
+            f"analysis={meta.get('analysis_model', 'n/a')}",
+            f"judge={meta.get('judge_model', 'n/a')}",
+            f"ollama={meta.get('ollama_version', 'n/a')}",
+        ]
+        if meta.get("self_grading"):
+            meta_bits.append("SELF-GRADING")
+        meta_text = " | ".join(meta_bits)
+
+        def judge_block(r: dict) -> str:
+            """Per-metric judge score together with the reason the judge gave."""
+            parts = []
+            for name, score_key, reason_key in (
+                ("Hallucination", "hallucination_score", "hallucination_reason"),
+                ("Relevancy", "relevancy_score", "relevancy_reason"),
+                ("Faithfulness", "faithfulness_score", "faithfulness_reason"),
+            ):
+                score = r.get(score_key, -1)
+                if not isinstance(score, (int, float)) or score < 0:
+                    parts.append(
+                        f"<div class=\"judge\"><span class=\"jname\">{name}</span>"
+                        f"<span class=\"jscore muted\">not measured</span></div>"
+                    )
+                    continue
+                reason = _escape(str(r.get(reason_key) or "(no reason returned)"))
+                parts.append(
+                    f"<div class=\"judge\"><span class=\"jname\">{name}</span>"
+                    f"<span class=\"jscore\">{score}</span>"
+                    f"<span class=\"jreason\">{reason}</span></div>"
+                )
+            return "".join(parts)
+
+        def answer_block(r: dict) -> str:
+            excerpt = r.get("answer_excerpt")
+            if not excerpt:
+                return ""
+            return f"<details><summary>AI answer excerpt</summary><pre>{_escape(str(excerpt))}</pre></details>"
 
         apm_rows = ""
         for r in eval_data.get("apm_eval", []):
@@ -81,9 +131,10 @@ def generate_html_report(
                 "<tr>"
                 f"<td>{_escape(str(r.get('scenario', '')))}</td>"
                 f"<td>{_escape(str(r.get('fault_type', '')))}</td>"
-                f"<td>{'Y' if r.get('fault_type_correct') else 'N'}</td>"
+                f"<td>{'-' if r.get('classification_unmeasured') else ('Y' if r.get('fault_type_correct') else 'N')}</td>"
                 f"<td>{int(float(r.get('overall_score', 0.0)) * 100)}%</td>"
                 "</tr>"
+                f'<tr class="detail"><td colspan="4">{judge_block(r)}{answer_block(r)}</td></tr>'
             )
         if not apm_rows:
             apm_rows = '<tr><td colspan="4" class="muted">No APM eval rows</td></tr>'
@@ -94,9 +145,10 @@ def generate_html_report(
                 "<tr>"
                 f"<td>{_escape(str(r.get('scenario', '')))}</td>"
                 f"<td>{_escape(str(r.get('error_type', '')))}</td>"
-                f"<td>{'Y' if r.get('error_type_correct') else 'N'}</td>"
+                f"<td>{'-' if r.get('classification_unmeasured') else ('Y' if r.get('error_type_correct') else 'N')}</td>"
                 f"<td>{int(float(r.get('overall_score', 0.0)) * 100)}%</td>"
                 "</tr>"
+                f'<tr class="detail"><td colspan="4">{judge_block(r)}{answer_block(r)}</td></tr>'
             )
         if not log_rows:
             log_rows = '<tr><td colspan="4" class="muted">No log eval rows</td></tr>'
@@ -109,15 +161,18 @@ def generate_html_report(
                 <div class="card {gate_class}"><div class="value">{gate_label}</div><div class="label">Quality Gate</div></div>
             </div>
             <p class="muted">schema_version: {schema_version}</p>
+            <p class="muted">{_escape(meta_text)}</p>
             <p><strong>Failed Rules:</strong> {_escape(failed_text)}</p>
+            <p><strong>Unmeasured:</strong> {_escape(unmeasured_text)}</p>
+            <p><strong>Thin sample:</strong> {_escape(thin_text)}</p>
             <p class="muted">
                 Metrics:
-                overall={metrics.get('overall_score', 0)},
-                apm_acc={metrics.get('apm_fault_type_accuracy', 0)},
-                log_acc={metrics.get('log_error_type_accuracy', 0)},
-                hallucination={metrics.get('hallucination', 0)},
-                relevancy={metrics.get('relevancy', 0)},
-                faithfulness={metrics.get('faithfulness', 0)}
+                overall={_escape(metric_text('overall_score'))},
+                apm_acc={_escape(metric_text('apm_fault_type_accuracy'))},
+                log_acc={_escape(metric_text('log_error_type_accuracy'))},
+                hallucination={_escape(metric_text('hallucination'))},
+                relevancy={_escape(metric_text('relevancy'))},
+                faithfulness={_escape(metric_text('faithfulness'))}
             </p>
 
             <h3>APM Eval</h3>
@@ -151,6 +206,14 @@ def generate_html_report(
     .card {{ background: #1e293b; padding: 12px 16px; border-radius: 10px; border: 1px solid #334155; min-width: 160px; }}
     .card.pass {{ border-color: #10b981; }}
     .card.fail {{ border-color: #ef4444; }}
+    .card.warn {{ border-color: #f59e0b; }}
+    tr.detail td {{ background: #172033; border-top: none; padding: 8px 12px 12px; }}
+    .judge {{ display: grid; grid-template-columns: 110px 52px 1fr; gap: 8px; align-items: start; padding: 3px 0; font-size: 12px; }}
+    .jname {{ color: #93c5fd; }}
+    .jscore {{ color: #e2e8f0; font-variant-numeric: tabular-nums; }}
+    .jreason {{ color: #94a3b8; line-height: 1.5; }}
+    tr.detail details {{ margin-top: 6px; font-size: 12px; color: #94a3b8; }}
+    tr.detail pre {{ white-space: pre-wrap; margin: 6px 0 0; padding: 8px; background: #0f172a; border-radius: 6px; overflow-x: auto; }}
     .value {{ font-size: 24px; font-weight: 700; }}
     .label {{ color: #94a3b8; font-size: 12px; }}
     table {{ width: 100%; border-collapse: collapse; background: #111827; border: 1px solid #1f2937; }}
