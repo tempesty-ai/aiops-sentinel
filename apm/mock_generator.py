@@ -63,7 +63,12 @@ class MockAPMGenerator:
             for server in MONITORED_SERVERS
         }
 
-    def _maybe_inject_fault(self, server: str) -> str:
+    def _maybe_inject_fault(self, server: str, force_scenario: str = "") -> str:
+        # A forced scenario makes the injected fault the known ground truth,
+        # which is what the golden-set builder needs.
+        if force_scenario:
+            return force_scenario
+
         state = self._server_state[server]
 
         # 장애 지속 중이면 유지
@@ -81,8 +86,8 @@ class MockAPMGenerator:
         state["scenario"] = "normal"
         return "normal"
 
-    def _generate_snapshot(self, server: str) -> APMSnapshot:
-        scenario = self._maybe_inject_fault(server)
+    def _generate_snapshot(self, server: str, force_scenario: str = "") -> APMSnapshot:
+        scenario = self._maybe_inject_fault(server, force_scenario)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # 기본 정상 수치
@@ -150,5 +155,10 @@ class MockAPMGenerator:
     def get_all_snapshots(self) -> list[APMSnapshot]:
         return [self._generate_snapshot(server) for server in MONITORED_SERVERS]
 
-    def get_snapshot(self, server: str) -> APMSnapshot:
-        return self._generate_snapshot(server)
+    def get_snapshot(self, server: str, force_scenario: str = "") -> APMSnapshot:
+        """
+        force_scenario pins the injected fault instead of rolling for it, so a
+        caller can generate a labeled sample whose expected class is known by
+        construction. Values come from FAULT_SCENARIOS.
+        """
+        return self._generate_snapshot(server, force_scenario)

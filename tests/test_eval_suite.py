@@ -50,6 +50,7 @@ def test_eval_smoke_with_mocks_and_regression_fixture():
             "hallucination_score": 0.9,
             "relevancy_score": 0.9,
             "faithfulness_score": 0.9,
+            "action_grounding_score": 1.0,
             "overall_score": 0.85,
             "severity": "warning",
         }
@@ -84,6 +85,7 @@ def test_missing_judge_scores_are_inconclusive_not_failed():
         "hallucination_score": 0.9,
         "relevancy_score": -1.0,      # judge returned invalid JSON
         "faithfulness_score": -1.0,   # judge returned invalid JSON
+        "action_grounding_score": 1.0,
     }
     report = EvalReport(apm_results=[case], log_results=[dict(case, error_type_correct=True)], overall_score=0.9)
     gate = evaluate_quality_gate(report)
@@ -117,6 +119,7 @@ def test_all_metrics_measured_and_above_threshold_passes():
         "hallucination_score": 0.9,
         "relevancy_score": 0.8,
         "faithfulness_score": 0.8,
+        "action_grounding_score": 1.0,
     }
     report = EvalReport(apm_results=[case], log_results=[case], overall_score=0.85)
     gate = evaluate_quality_gate(report)
@@ -177,4 +180,45 @@ def test_fallback_answers_are_excluded_from_judge_metrics():
 
     assert gate.sample_counts["hallucination"] == 1
     assert gate.sample_counts["apm_fault_type_accuracy"] == 1
+
+
+def test_ungrounded_action_fails_the_gate_even_when_the_judge_is_happy():
+    """The defect this metric exists for: a plausible action the metrics do not support."""
+    cases = [
+        {
+            "fault_type_correct": True,
+            "hallucination_score": 1.0,   # judge saw no problem
+            "relevancy_score": 1.0,
+            "faithfulness_score": 1.0,
+            "action_grounding_score": 0.0,
+            "action_grounding_unsupported": ["db_connection"],
+        }
+    ] * 3
+    report = EvalReport(apm_results=cases, log_results=[], overall_score=0.9)
+    gate = evaluate_quality_gate(report)
+
+    assert gate.metrics["action_grounding"] == 0.0
+    assert "action_grounding" in gate.failed_rules
+    assert gate.status == "FAIL"
+    # The judge metrics are untouched: this is an independent check, not a re-score.
+    assert "hallucination" not in gate.failed_rules
+
+
+def test_action_without_a_checkable_resource_is_unmeasured_not_zero():
+    cases = [
+        {
+            "fault_type_correct": True,
+            "hallucination_score": 0.9,
+            "relevancy_score": 0.9,
+            "faithfulness_score": 0.9,
+            "action_grounding_score": None,   # "collect a thread dump and escalate"
+        }
+    ] * 3
+    report = EvalReport(apm_results=cases, log_results=[], overall_score=0.9)
+    gate = evaluate_quality_gate(report)
+
+    assert gate.metrics["action_grounding"] is None
+    assert gate.sample_counts["action_grounding"] == 0
+    assert "action_grounding" in gate.unmeasured_rules
+    assert "action_grounding" not in gate.failed_rules
 

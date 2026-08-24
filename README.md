@@ -85,6 +85,7 @@
 | **Hallucination** | AI가 근거 없는 내용을 생성하지 않는 비율 |
 | **Answer Relevancy** | 장애 상황과 관련성 있는 답변 비율 |
 | **Faithfulness** | 실제 모니터링 데이터 기반으로 답변한 비율 |
+| **조치 정합성** (규칙 기반) | 조치가 지목한 리소스가 실제로 이상 감지된 항목인가 |
 | 종합 품질 점수 | 커스텀 50% + DeepEval 50% 가중 평균 |
 
 → **"AI의 답을 운영에 쓸 수 있는가"** 를 점수로 게이트.
@@ -183,6 +184,12 @@ python main.py --report
 # 품질 게이트를 CI 종료 코드로 강제 (0 통과 / 2 미달 / 3 설정오류 / 4 측정불가)
 python main.py --eval --gate
 
+# 층화 샘플 20건만 평가 (전체 102건은 LLM 호출 약 408회)
+python main.py --eval --sample 20
+
+# 골든셋 재생성 (같은 seed면 동일 파일)
+python -m eval.datasets.build_golden --apm 60 --log 42
+
 # 프롬프트 A/B — 데이터셋·심판 모델을 고정하고 프롬프트만 바꿔 비교
 APM_PROMPT_VERSION=v1 python main.py --eval
 APM_PROMPT_VERSION=v2 python main.py --eval
@@ -210,8 +217,12 @@ aiops-sentinel/
 ├── alert/
 │   └── mattermost.py        # Mattermost Webhook 알람
 ├── eval/
+│   ├── action_grounding.py  # 조치 정합성 검증 (LLM 심판이 놓치는 것을 규칙으로)
 │   ├── datasets/
-│   │   └── golden_v1.json   # 레이블링된 골든셋 (코드와 분리, 버전 관리)
+│   │   ├── build_golden.py  # 운영 코드 경로에서 골든셋 생성 (정답은 구성상 확정)
+│   │   ├── golden_v1.json   # v1 (5건, 손으로 작성)
+│   │   └── golden_v2.json   # v2 (102건, 생성) — 현재 사용
+│   │                        #   로그는 유형 14종 x 문구 3종 = 42건 전부 다른 표현
 │   ├── eval_suite.py        # DeepEval 품질 평가 + 품질 게이트
 │   ├── compare_runs.py      # 실행 간 회귀 비교 (프롬프트/심판 모델 A/B)
 │   └── report_generator.py  # HTML 리포트 생성

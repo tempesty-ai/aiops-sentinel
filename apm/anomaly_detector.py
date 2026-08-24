@@ -2,7 +2,7 @@
 APM 이상 감지 모듈
 임계값 기반으로 장애 여부를 판단하고 분석용 컨텍스트를 구성
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 from apm.mock_generator import APMSnapshot
 from config.settings import (
@@ -12,13 +12,24 @@ from config.settings import (
 )
 
 
+# Machine-readable metric keys, so downstream checks do not have to parse the
+# human-readable rule strings.
+METRIC_CPU = "cpu"
+METRIC_RESPONSE_TIME = "response_time"
+METRIC_DB_CONNECTION = "db_connection"
+METRIC_MEMORY = "memory"
+METRIC_HEAP = "heap"
+METRIC_ERROR_RATE = "error_rate"
+
+
 @dataclass
 class AnomalyResult:
     is_anomaly: bool
     severity: str                  # "정상" / "경고" / "심각"
     snapshot: APMSnapshot
-    triggered_rules: list[str]     # 어떤 임계값이 걸렸는지
+    triggered_rules: list[str]     # 어떤 임계값이 걸렸는지 (사람용)
     context_for_ai: str            # AI 분석에 넘길 텍스트 컨텍스트
+    triggered_metrics: list[str] = field(default_factory=list)  # 걸린 항목 키 (기계용)
 
 
 class AnomalyDetector:
@@ -29,18 +40,21 @@ class AnomalyDetector:
 
     def analyze(self, snapshot: APMSnapshot) -> AnomalyResult:
         triggered_rules = []
+        triggered_metrics = []
 
         # CPU 임계값 체크
         if snapshot.cpu_usage >= APM_CPU_THRESHOLD:
             triggered_rules.append(
                 f"CPU 사용률 {snapshot.cpu_usage}% (임계값: {APM_CPU_THRESHOLD}%)"
             )
+            triggered_metrics.append(METRIC_CPU)
 
         # 응답시간 임계값 체크
         if snapshot.response_time_ms >= APM_RESPONSE_TIME_THRESHOLD:
             triggered_rules.append(
                 f"응답시간 {snapshot.response_time_ms:.0f}ms (임계값: {APM_RESPONSE_TIME_THRESHOLD}ms)"
             )
+            triggered_metrics.append(METRIC_RESPONSE_TIME)
 
         # DB 커넥션 풀 체크 (사용률 %)
         db_usage_pct = (snapshot.db_connections / snapshot.db_connection_max) * 100
@@ -49,12 +63,14 @@ class AnomalyDetector:
                 f"DB 커넥션 {snapshot.db_connections}/{snapshot.db_connection_max} "
                 f"({db_usage_pct:.0f}%, 임계값: {APM_DB_CONNECTION_THRESHOLD}%)"
             )
+            triggered_metrics.append(METRIC_DB_CONNECTION)
 
         # 메모리 체크 (90% 이상)
         if snapshot.memory_usage >= 90:
             triggered_rules.append(
                 f"메모리 사용률 {snapshot.memory_usage}% (임계값: 90%)"
             )
+            triggered_metrics.append(METRIC_MEMORY)
 
         # 힙 메모리 체크 (90% 이상)
         heap_usage_pct = (snapshot.heap_used_mb / snapshot.heap_max_mb) * 100
@@ -63,12 +79,14 @@ class AnomalyDetector:
                 f"힙 메모리 {snapshot.heap_used_mb}MB/{snapshot.heap_max_mb}MB "
                 f"({heap_usage_pct:.0f}%, 임계값: 90%)"
             )
+            triggered_metrics.append(METRIC_HEAP)
 
         # 에러율 체크 (5% 이상)
         if snapshot.error_rate >= 5:
             triggered_rules.append(
                 f"에러율 {snapshot.error_rate}% (임계값: 5%)"
             )
+            triggered_metrics.append(METRIC_ERROR_RATE)
 
         is_anomaly = len(triggered_rules) > 0
 
@@ -88,6 +106,7 @@ class AnomalyDetector:
             snapshot=snapshot,
             triggered_rules=triggered_rules,
             context_for_ai=context,
+            triggered_metrics=triggered_metrics,
         )
 
     def _build_ai_context(self, s: APMSnapshot, rules: list[str]) -> str:

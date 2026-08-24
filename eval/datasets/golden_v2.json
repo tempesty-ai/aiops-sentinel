@@ -1,0 +1,2123 @@
+{
+  "dataset_version": "2.2.0",
+  "description": "Golden set generated from the operational code path: MockAPMGenerator with a forced fault scenario -> AnomalyDetector -> context_for_ai. All data is virtual sample data.",
+  "generated_by": "eval/datasets/build_golden.py",
+  "seed": 20260819,
+  "labeling_notes": [
+    "The injected fault scenario is the ground truth, so labels are correct by construction.",
+    "A label must be inferable from the sample alone: 'memory_leak' samples are labeled memory/heap, never 'leak', because one snapshot cannot separate a leak from high usage.",
+    "Expected types are matched against the PARSED classification field, not the whole response.",
+    "Parser fallback values such as 'Unknown' are never valid labels.",
+    "Labels use word stems so morphological variants both match.",
+    "APM samples the anomaly detector does not flag are dropped: the runtime pipeline never sends those to the AI, so they are not valid eval inputs.",
+    "triggered_metrics records which metrics the detector flagged, so the action-grounding check can verify a recommendation against detection instead of re-deriving thresholds.",
+    "Each log error class carries several real-world phrasings of the same fault, so a class that only passes on one wording shows up as brittleness rather than as a pass."
+  ],
+  "apm_cases": [
+    {
+      "case_id": "apm-001",
+      "name": "cpu_spike on JNode_21000",
+      "scenario_key": "cpu_spike",
+      "server": "JNode_21000",
+      "severity_expected": "경고",
+      "triggered_rules": [
+        "CPU 사용률 85.4% (임계값: 80.0%)"
+      ],
+      "triggered_metrics": [
+        "cpu"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:00:00]\n\n서버: JNode_21000\n감지된 이상 항목:\n  - CPU 사용률 85.4% (임계값: 80.0%)\n\n전체 지표:\n  - CPU 사용률: 85.4%\n  - 메모리 사용률: 46.1%\n  - 힙 메모리: 350.1MB / 1024MB (34%)\n  - 액티브 트랜잭션: 25건\n  - 평균 응답시간: 1672ms\n  - DB 커넥션: 12/50 (24%)\n  - 초당 요청: 11.1건/초\n  - 에러율: 0.35%\n  - 현재 알람 레벨: 경고",
+      "expected_keywords": [
+        "cpu",
+        "response"
+      ],
+      "expected_fault_types": [
+        "cpu",
+        "processor",
+        "saturation",
+        "bottleneck"
+      ]
+    },
+    {
+      "case_id": "apm-002",
+      "name": "memory_leak on Was_Agent_1",
+      "scenario_key": "memory_leak",
+      "server": "Was_Agent_1",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "메모리 사용률 93.5% (임계값: 90%)",
+        "힙 메모리 955.3MB/1024MB (93%, 임계값: 90%)"
+      ],
+      "triggered_metrics": [
+        "memory",
+        "heap"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:01:00]\n\n서버: Was_Agent_1\n감지된 이상 항목:\n  - 메모리 사용률 93.5% (임계값: 90%)\n  - 힙 메모리 955.3MB/1024MB (93%, 임계값: 90%)\n\n전체 지표:\n  - CPU 사용률: 19.2%\n  - 메모리 사용률: 93.5%\n  - 힙 메모리: 955.3MB / 1024MB (93%)\n  - 액티브 트랜잭션: 5건\n  - 평균 응답시간: 1242ms\n  - DB 커넥션: 11/50 (22%)\n  - 초당 요청: 19.2건/초\n  - 에러율: 0.06%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "memory",
+        "heap"
+      ],
+      "expected_fault_types": [
+        "memory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "apm-003",
+      "name": "db_connection_pool on Was_Agent_2",
+      "scenario_key": "db_connection_pool",
+      "server": "Was_Agent_2",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 4822ms (임계값: 2000.0ms)",
+        "DB 커넥션 50/50 (100%, 임계값: 80.0%)",
+        "에러율 10.18% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "db_connection",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:02:00]\n\n서버: Was_Agent_2\n감지된 이상 항목:\n  - 응답시간 4822ms (임계값: 2000.0ms)\n  - DB 커넥션 50/50 (100%, 임계값: 80.0%)\n  - 에러율 10.18% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 32.8%\n  - 메모리 사용률: 43.5%\n  - 힙 메모리: 492.7MB / 1024MB (48%)\n  - 액티브 트랜잭션: 50건\n  - 평균 응답시간: 4822ms\n  - DB 커넥션: 50/50 (100%)\n  - 초당 요청: 10.4건/초\n  - 에러율: 10.18%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "db",
+        "connection"
+      ],
+      "expected_fault_types": [
+        "db",
+        "database",
+        "connect",
+        "pool"
+      ]
+    },
+    {
+      "case_id": "apm-004",
+      "name": "slow_response on was_sample_9300",
+      "scenario_key": "slow_response",
+      "server": "was_sample_9300",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 9998ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:03:00]\n\n서버: was_sample_9300\n감지된 이상 항목:\n  - 응답시간 9998ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 33.0%\n  - 메모리 사용률: 43.5%\n  - 힙 메모리: 365.1MB / 1024MB (36%)\n  - 액티브 트랜잭션: 30건\n  - 평균 응답시간: 9998ms\n  - DB 커넥션: 11/50 (22%)\n  - 초당 요청: 2.3건/초\n  - 에러율: 0.08%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "response",
+        "latency"
+      ],
+      "expected_fault_types": [
+        "response",
+        "latency",
+        "slow",
+        "timeout",
+        "performance"
+      ]
+    },
+    {
+      "case_id": "apm-005",
+      "name": "high_error_rate on docker_finance_13000",
+      "scenario_key": "high_error_rate",
+      "server": "docker_finance_13000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 2702ms (임계값: 2000.0ms)",
+        "에러율 26.45% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:04:00]\n\n서버: docker_finance_13000\n감지된 이상 항목:\n  - 응답시간 2702ms (임계값: 2000.0ms)\n  - 에러율 26.45% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 20.7%\n  - 메모리 사용률: 48.8%\n  - 힙 메모리: 287.3MB / 1024MB (28%)\n  - 액티브 트랜잭션: 13건\n  - 평균 응답시간: 2702ms\n  - DB 커넥션: 10/50 (20%)\n  - 초당 요청: 13.4건/초\n  - 에러율: 26.45%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "error",
+        "rate"
+      ],
+      "expected_fault_types": [
+        "error",
+        "failure",
+        "exception",
+        "fault"
+      ]
+    },
+    {
+      "case_id": "apm-006",
+      "name": "cpu_spike on JNode_20000",
+      "scenario_key": "cpu_spike",
+      "server": "JNode_20000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "CPU 사용률 94.1% (임계값: 80.0%)",
+        "응답시간 2039ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "cpu",
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:05:00]\n\n서버: JNode_20000\n감지된 이상 항목:\n  - CPU 사용률 94.1% (임계값: 80.0%)\n  - 응답시간 2039ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 94.1%\n  - 메모리 사용률: 44.2%\n  - 힙 메모리: 226.8MB / 1024MB (22%)\n  - 액티브 트랜잭션: 40건\n  - 평균 응답시간: 2039ms\n  - DB 커넥션: 7/50 (14%)\n  - 초당 요청: 5.4건/초\n  - 에러율: 0.07%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "cpu",
+        "response"
+      ],
+      "expected_fault_types": [
+        "cpu",
+        "processor",
+        "saturation",
+        "bottleneck"
+      ]
+    },
+    {
+      "case_id": "apm-007",
+      "name": "memory_leak on was_sample_9300",
+      "scenario_key": "memory_leak",
+      "server": "was_sample_9300",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "메모리 사용률 95.5% (임계값: 90%)",
+        "힙 메모리 937.1MB/1024MB (92%, 임계값: 90%)"
+      ],
+      "triggered_metrics": [
+        "memory",
+        "heap"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:06:00]\n\n서버: was_sample_9300\n감지된 이상 항목:\n  - 메모리 사용률 95.5% (임계값: 90%)\n  - 힙 메모리 937.1MB/1024MB (92%, 임계값: 90%)\n\n전체 지표:\n  - CPU 사용률: 11.9%\n  - 메모리 사용률: 95.5%\n  - 힙 메모리: 937.1MB / 1024MB (92%)\n  - 액티브 트랜잭션: 2건\n  - 평균 응답시간: 1217ms\n  - DB 커넥션: 13/50 (26%)\n  - 초당 요청: 9.1건/초\n  - 에러율: 0.28%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "memory",
+        "heap"
+      ],
+      "expected_fault_types": [
+        "memory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "apm-008",
+      "name": "db_connection_pool on JNode_20000",
+      "scenario_key": "db_connection_pool",
+      "server": "JNode_20000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 7286ms (임계값: 2000.0ms)",
+        "DB 커넥션 47/50 (94%, 임계값: 80.0%)",
+        "에러율 13.22% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "db_connection",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:07:00]\n\n서버: JNode_20000\n감지된 이상 항목:\n  - 응답시간 7286ms (임계값: 2000.0ms)\n  - DB 커넥션 47/50 (94%, 임계값: 80.0%)\n  - 에러율 13.22% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 32.4%\n  - 메모리 사용률: 40.3%\n  - 힙 메모리: 308.8MB / 1024MB (30%)\n  - 액티브 트랜잭션: 25건\n  - 평균 응답시간: 7286ms\n  - DB 커넥션: 47/50 (94%)\n  - 초당 요청: 16.6건/초\n  - 에러율: 13.22%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "db",
+        "connection"
+      ],
+      "expected_fault_types": [
+        "db",
+        "database",
+        "connect",
+        "pool"
+      ]
+    },
+    {
+      "case_id": "apm-009",
+      "name": "slow_response on was_sample_9200",
+      "scenario_key": "slow_response",
+      "server": "was_sample_9200",
+      "severity_expected": "경고",
+      "triggered_rules": [
+        "응답시간 4029ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:08:00]\n\n서버: was_sample_9200\n감지된 이상 항목:\n  - 응답시간 4029ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 36.4%\n  - 메모리 사용률: 55.2%\n  - 힙 메모리: 567.0MB / 1024MB (55%)\n  - 액티브 트랜잭션: 35건\n  - 평균 응답시간: 4029ms\n  - DB 커넥션: 9/50 (18%)\n  - 초당 요청: 2.9건/초\n  - 에러율: 0.32%\n  - 현재 알람 레벨: 경고",
+      "expected_keywords": [
+        "response",
+        "latency"
+      ],
+      "expected_fault_types": [
+        "response",
+        "latency",
+        "slow",
+        "timeout",
+        "performance"
+      ]
+    },
+    {
+      "case_id": "apm-010",
+      "name": "high_error_rate on was_sample_01",
+      "scenario_key": "high_error_rate",
+      "server": "was_sample_01",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 2968ms (임계값: 2000.0ms)",
+        "에러율 23.18% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:09:00]\n\n서버: was_sample_01\n감지된 이상 항목:\n  - 응답시간 2968ms (임계값: 2000.0ms)\n  - 에러율 23.18% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 27.9%\n  - 메모리 사용률: 40.5%\n  - 힙 메모리: 229.5MB / 1024MB (22%)\n  - 액티브 트랜잭션: 10건\n  - 평균 응답시간: 2968ms\n  - DB 커넥션: 6/50 (12%)\n  - 초당 요청: 19.5건/초\n  - 에러율: 23.18%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "error",
+        "rate"
+      ],
+      "expected_fault_types": [
+        "error",
+        "failure",
+        "exception",
+        "fault"
+      ]
+    },
+    {
+      "case_id": "apm-011",
+      "name": "cpu_spike on was_sample_9200",
+      "scenario_key": "cpu_spike",
+      "server": "was_sample_9200",
+      "severity_expected": "경고",
+      "triggered_rules": [
+        "CPU 사용률 87.9% (임계값: 80.0%)",
+        "응답시간 2991ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "cpu",
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:10:00]\n\n서버: was_sample_9200\n감지된 이상 항목:\n  - CPU 사용률 87.9% (임계값: 80.0%)\n  - 응답시간 2991ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 87.9%\n  - 메모리 사용률: 39.4%\n  - 힙 메모리: 345.5MB / 1024MB (34%)\n  - 액티브 트랜잭션: 38건\n  - 평균 응답시간: 2991ms\n  - DB 커넥션: 11/50 (22%)\n  - 초당 요청: 8.1건/초\n  - 에러율: 0.44%\n  - 현재 알람 레벨: 경고",
+      "expected_keywords": [
+        "cpu",
+        "response"
+      ],
+      "expected_fault_types": [
+        "cpu",
+        "processor",
+        "saturation",
+        "bottleneck"
+      ]
+    },
+    {
+      "case_id": "apm-012",
+      "name": "memory_leak on was_sample_9300",
+      "scenario_key": "memory_leak",
+      "server": "was_sample_9300",
+      "severity_expected": "경고",
+      "triggered_rules": [
+        "힙 메모리 997.0MB/1024MB (97%, 임계값: 90%)"
+      ],
+      "triggered_metrics": [
+        "heap"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:11:00]\n\n서버: was_sample_9300\n감지된 이상 항목:\n  - 힙 메모리 997.0MB/1024MB (97%, 임계값: 90%)\n\n전체 지표:\n  - CPU 사용률: 22.9%\n  - 메모리 사용률: 88.5%\n  - 힙 메모리: 997.0MB / 1024MB (97%)\n  - 액티브 트랜잭션: 9건\n  - 평균 응답시간: 1861ms\n  - DB 커넥션: 2/50 (4%)\n  - 초당 요청: 13.7건/초\n  - 에러율: 0.39%\n  - 현재 알람 레벨: 경고",
+      "expected_keywords": [
+        "memory",
+        "heap"
+      ],
+      "expected_fault_types": [
+        "memory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "apm-013",
+      "name": "db_connection_pool on Was_Agent_1",
+      "scenario_key": "db_connection_pool",
+      "server": "Was_Agent_1",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 4581ms (임계값: 2000.0ms)",
+        "DB 커넥션 49/50 (98%, 임계값: 80.0%)",
+        "에러율 11.46% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "db_connection",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:12:00]\n\n서버: Was_Agent_1\n감지된 이상 항목:\n  - 응답시간 4581ms (임계값: 2000.0ms)\n  - DB 커넥션 49/50 (98%, 임계값: 80.0%)\n  - 에러율 11.46% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 39.1%\n  - 메모리 사용률: 50.4%\n  - 힙 메모리: 496.8MB / 1024MB (49%)\n  - 액티브 트랜잭션: 42건\n  - 평균 응답시간: 4581ms\n  - DB 커넥션: 49/50 (98%)\n  - 초당 요청: 5.3건/초\n  - 에러율: 11.46%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "db",
+        "connection"
+      ],
+      "expected_fault_types": [
+        "db",
+        "database",
+        "connect",
+        "pool"
+      ]
+    },
+    {
+      "case_id": "apm-014",
+      "name": "slow_response on docker_service_12001",
+      "scenario_key": "slow_response",
+      "server": "docker_service_12001",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 8904ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:13:00]\n\n서버: docker_service_12001\n감지된 이상 항목:\n  - 응답시간 8904ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 23.7%\n  - 메모리 사용률: 37.4%\n  - 힙 메모리: 462.7MB / 1024MB (45%)\n  - 액티브 트랜잭션: 19건\n  - 평균 응답시간: 8904ms\n  - DB 커넥션: 7/50 (14%)\n  - 초당 요청: 3.7건/초\n  - 에러율: 0.16%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "response",
+        "latency"
+      ],
+      "expected_fault_types": [
+        "response",
+        "latency",
+        "slow",
+        "timeout",
+        "performance"
+      ]
+    },
+    {
+      "case_id": "apm-015",
+      "name": "high_error_rate on docker_service_12001",
+      "scenario_key": "high_error_rate",
+      "server": "docker_service_12001",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "에러율 30.54% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:14:00]\n\n서버: docker_service_12001\n감지된 이상 항목:\n  - 에러율 30.54% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 35.7%\n  - 메모리 사용률: 39.9%\n  - 힙 메모리: 305.0MB / 1024MB (30%)\n  - 액티브 트랜잭션: 10건\n  - 평균 응답시간: 1958ms\n  - DB 커넥션: 9/50 (18%)\n  - 초당 요청: 16.0건/초\n  - 에러율: 30.54%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "error",
+        "rate"
+      ],
+      "expected_fault_types": [
+        "error",
+        "failure",
+        "exception",
+        "fault"
+      ]
+    },
+    {
+      "case_id": "apm-016",
+      "name": "cpu_spike on was_sample_01",
+      "scenario_key": "cpu_spike",
+      "server": "was_sample_01",
+      "severity_expected": "경고",
+      "triggered_rules": [
+        "CPU 사용률 86.6% (임계값: 80.0%)"
+      ],
+      "triggered_metrics": [
+        "cpu"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:15:00]\n\n서버: was_sample_01\n감지된 이상 항목:\n  - CPU 사용률 86.6% (임계값: 80.0%)\n\n전체 지표:\n  - CPU 사용률: 86.6%\n  - 메모리 사용률: 53.1%\n  - 힙 메모리: 304.1MB / 1024MB (30%)\n  - 액티브 트랜잭션: 26건\n  - 평균 응답시간: 1557ms\n  - DB 커넥션: 9/50 (18%)\n  - 초당 요청: 7.4건/초\n  - 에러율: 0.08%\n  - 현재 알람 레벨: 경고",
+      "expected_keywords": [
+        "cpu",
+        "response"
+      ],
+      "expected_fault_types": [
+        "cpu",
+        "processor",
+        "saturation",
+        "bottleneck"
+      ]
+    },
+    {
+      "case_id": "apm-017",
+      "name": "memory_leak on was_sample_01",
+      "scenario_key": "memory_leak",
+      "server": "was_sample_01",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "메모리 사용률 91.4% (임계값: 90%)",
+        "힙 메모리 969.8MB/1024MB (95%, 임계값: 90%)"
+      ],
+      "triggered_metrics": [
+        "memory",
+        "heap"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:16:00]\n\n서버: was_sample_01\n감지된 이상 항목:\n  - 메모리 사용률 91.4% (임계값: 90%)\n  - 힙 메모리 969.8MB/1024MB (95%, 임계값: 90%)\n\n전체 지표:\n  - CPU 사용률: 32.1%\n  - 메모리 사용률: 91.4%\n  - 힙 메모리: 969.8MB / 1024MB (95%)\n  - 액티브 트랜잭션: 9건\n  - 평균 응답시간: 1915ms\n  - DB 커넥션: 6/50 (12%)\n  - 초당 요청: 5.8건/초\n  - 에러율: 0.13%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "memory",
+        "heap"
+      ],
+      "expected_fault_types": [
+        "memory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "apm-018",
+      "name": "db_connection_pool on Was_Agent_2",
+      "scenario_key": "db_connection_pool",
+      "server": "Was_Agent_2",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 5775ms (임계값: 2000.0ms)",
+        "DB 커넥션 46/50 (92%, 임계값: 80.0%)",
+        "에러율 15.34% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "db_connection",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:17:00]\n\n서버: Was_Agent_2\n감지된 이상 항목:\n  - 응답시간 5775ms (임계값: 2000.0ms)\n  - DB 커넥션 46/50 (92%, 임계값: 80.0%)\n  - 에러율 15.34% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 38.6%\n  - 메모리 사용률: 33.2%\n  - 힙 메모리: 547.5MB / 1024MB (53%)\n  - 액티브 트랜잭션: 32건\n  - 평균 응답시간: 5775ms\n  - DB 커넥션: 46/50 (92%)\n  - 초당 요청: 19.6건/초\n  - 에러율: 15.34%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "db",
+        "connection"
+      ],
+      "expected_fault_types": [
+        "db",
+        "database",
+        "connect",
+        "pool"
+      ]
+    },
+    {
+      "case_id": "apm-019",
+      "name": "slow_response on docker_resource_12000",
+      "scenario_key": "slow_response",
+      "server": "docker_resource_12000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 7450ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:18:00]\n\n서버: docker_resource_12000\n감지된 이상 항목:\n  - 응답시간 7450ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 27.3%\n  - 메모리 사용률: 40.2%\n  - 힙 메모리: 458.8MB / 1024MB (45%)\n  - 액티브 트랜잭션: 29건\n  - 평균 응답시간: 7450ms\n  - DB 커넥션: 15/50 (30%)\n  - 초당 요청: 3.5건/초\n  - 에러율: 0.05%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "response",
+        "latency"
+      ],
+      "expected_fault_types": [
+        "response",
+        "latency",
+        "slow",
+        "timeout",
+        "performance"
+      ]
+    },
+    {
+      "case_id": "apm-020",
+      "name": "high_error_rate on Was_Agent_2",
+      "scenario_key": "high_error_rate",
+      "server": "Was_Agent_2",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "에러율 37.18% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:19:00]\n\n서버: Was_Agent_2\n감지된 이상 항목:\n  - 에러율 37.18% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 26.8%\n  - 메모리 사용률: 45.7%\n  - 힙 메모리: 480.0MB / 1024MB (47%)\n  - 액티브 트랜잭션: 12건\n  - 평균 응답시간: 1673ms\n  - DB 커넥션: 4/50 (8%)\n  - 초당 요청: 19.5건/초\n  - 에러율: 37.18%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "error",
+        "rate"
+      ],
+      "expected_fault_types": [
+        "error",
+        "failure",
+        "exception",
+        "fault"
+      ]
+    },
+    {
+      "case_id": "apm-021",
+      "name": "cpu_spike on docker_service_12001",
+      "scenario_key": "cpu_spike",
+      "server": "docker_service_12001",
+      "severity_expected": "경고",
+      "triggered_rules": [
+        "CPU 사용률 88.9% (임계값: 80.0%)"
+      ],
+      "triggered_metrics": [
+        "cpu"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:20:00]\n\n서버: docker_service_12001\n감지된 이상 항목:\n  - CPU 사용률 88.9% (임계값: 80.0%)\n\n전체 지표:\n  - CPU 사용률: 88.9%\n  - 메모리 사용률: 32.5%\n  - 힙 메모리: 516.9MB / 1024MB (50%)\n  - 액티브 트랜잭션: 40건\n  - 평균 응답시간: 1581ms\n  - DB 커넥션: 13/50 (26%)\n  - 초당 요청: 14.8건/초\n  - 에러율: 0.24%\n  - 현재 알람 레벨: 경고",
+      "expected_keywords": [
+        "cpu",
+        "response"
+      ],
+      "expected_fault_types": [
+        "cpu",
+        "processor",
+        "saturation",
+        "bottleneck"
+      ]
+    },
+    {
+      "case_id": "apm-022",
+      "name": "memory_leak on was_sample_9200",
+      "scenario_key": "memory_leak",
+      "server": "was_sample_9200",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "메모리 사용률 96.0% (임계값: 90%)"
+      ],
+      "triggered_metrics": [
+        "memory"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:21:00]\n\n서버: was_sample_9200\n감지된 이상 항목:\n  - 메모리 사용률 96.0% (임계값: 90%)\n\n전체 지표:\n  - CPU 사용률: 26.7%\n  - 메모리 사용률: 96.0%\n  - 힙 메모리: 916.5MB / 1024MB (90%)\n  - 액티브 트랜잭션: 8건\n  - 평균 응답시간: 1383ms\n  - DB 커넥션: 15/50 (30%)\n  - 초당 요청: 5.6건/초\n  - 에러율: 0.26%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "memory",
+        "heap"
+      ],
+      "expected_fault_types": [
+        "memory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "apm-023",
+      "name": "db_connection_pool on JNode_20000",
+      "scenario_key": "db_connection_pool",
+      "server": "JNode_20000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 6862ms (임계값: 2000.0ms)",
+        "DB 커넥션 48/50 (96%, 임계값: 80.0%)",
+        "에러율 16.54% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "db_connection",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:22:00]\n\n서버: JNode_20000\n감지된 이상 항목:\n  - 응답시간 6862ms (임계값: 2000.0ms)\n  - DB 커넥션 48/50 (96%, 임계값: 80.0%)\n  - 에러율 16.54% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 26.4%\n  - 메모리 사용률: 53.2%\n  - 힙 메모리: 449.0MB / 1024MB (44%)\n  - 액티브 트랜잭션: 47건\n  - 평균 응답시간: 6862ms\n  - DB 커넥션: 48/50 (96%)\n  - 초당 요청: 7.0건/초\n  - 에러율: 16.54%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "db",
+        "connection"
+      ],
+      "expected_fault_types": [
+        "db",
+        "database",
+        "connect",
+        "pool"
+      ]
+    },
+    {
+      "case_id": "apm-024",
+      "name": "slow_response on Was_Agent_1",
+      "scenario_key": "slow_response",
+      "server": "Was_Agent_1",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 6976ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:23:00]\n\n서버: Was_Agent_1\n감지된 이상 항목:\n  - 응답시간 6976ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 24.4%\n  - 메모리 사용률: 39.8%\n  - 힙 메모리: 423.4MB / 1024MB (41%)\n  - 액티브 트랜잭션: 19건\n  - 평균 응답시간: 6976ms\n  - DB 커넥션: 6/50 (12%)\n  - 초당 요청: 2.4건/초\n  - 에러율: 0.4%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "response",
+        "latency"
+      ],
+      "expected_fault_types": [
+        "response",
+        "latency",
+        "slow",
+        "timeout",
+        "performance"
+      ]
+    },
+    {
+      "case_id": "apm-025",
+      "name": "high_error_rate on docker_resource_12000",
+      "scenario_key": "high_error_rate",
+      "server": "docker_resource_12000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 2897ms (임계값: 2000.0ms)",
+        "에러율 32.51% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:24:00]\n\n서버: docker_resource_12000\n감지된 이상 항목:\n  - 응답시간 2897ms (임계값: 2000.0ms)\n  - 에러율 32.51% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 26.2%\n  - 메모리 사용률: 30.6%\n  - 힙 메모리: 281.2MB / 1024MB (27%)\n  - 액티브 트랜잭션: 13건\n  - 평균 응답시간: 2897ms\n  - DB 커넥션: 2/50 (4%)\n  - 초당 요청: 15.3건/초\n  - 에러율: 32.51%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "error",
+        "rate"
+      ],
+      "expected_fault_types": [
+        "error",
+        "failure",
+        "exception",
+        "fault"
+      ]
+    },
+    {
+      "case_id": "apm-026",
+      "name": "cpu_spike on docker_finance_13000",
+      "scenario_key": "cpu_spike",
+      "server": "docker_finance_13000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "CPU 사용률 97.7% (임계값: 80.0%)"
+      ],
+      "triggered_metrics": [
+        "cpu"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:25:00]\n\n서버: docker_finance_13000\n감지된 이상 항목:\n  - CPU 사용률 97.7% (임계값: 80.0%)\n\n전체 지표:\n  - CPU 사용률: 97.7%\n  - 메모리 사용률: 48.3%\n  - 힙 메모리: 535.8MB / 1024MB (52%)\n  - 액티브 트랜잭션: 24건\n  - 평균 응답시간: 1584ms\n  - DB 커넥션: 12/50 (24%)\n  - 초당 요청: 17.2건/초\n  - 에러율: 0.17%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "cpu",
+        "response"
+      ],
+      "expected_fault_types": [
+        "cpu",
+        "processor",
+        "saturation",
+        "bottleneck"
+      ]
+    },
+    {
+      "case_id": "apm-027",
+      "name": "memory_leak on was_sample_01",
+      "scenario_key": "memory_leak",
+      "server": "was_sample_01",
+      "severity_expected": "경고",
+      "triggered_rules": [
+        "힙 메모리 939.3MB/1024MB (92%, 임계값: 90%)"
+      ],
+      "triggered_metrics": [
+        "heap"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:26:00]\n\n서버: was_sample_01\n감지된 이상 항목:\n  - 힙 메모리 939.3MB/1024MB (92%, 임계값: 90%)\n\n전체 지표:\n  - CPU 사용률: 21.9%\n  - 메모리 사용률: 88.2%\n  - 힙 메모리: 939.3MB / 1024MB (92%)\n  - 액티브 트랜잭션: 3건\n  - 평균 응답시간: 1326ms\n  - DB 커넥션: 12/50 (24%)\n  - 초당 요청: 7.5건/초\n  - 에러율: 0.34%\n  - 현재 알람 레벨: 경고",
+      "expected_keywords": [
+        "memory",
+        "heap"
+      ],
+      "expected_fault_types": [
+        "memory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "apm-028",
+      "name": "db_connection_pool on was_sample_9200",
+      "scenario_key": "db_connection_pool",
+      "server": "was_sample_9200",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 3066ms (임계값: 2000.0ms)",
+        "DB 커넥션 47/50 (94%, 임계값: 80.0%)",
+        "에러율 14.44% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "db_connection",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:27:00]\n\n서버: was_sample_9200\n감지된 이상 항목:\n  - 응답시간 3066ms (임계값: 2000.0ms)\n  - DB 커넥션 47/50 (94%, 임계값: 80.0%)\n  - 에러율 14.44% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 37.3%\n  - 메모리 사용률: 59.5%\n  - 힙 메모리: 439.7MB / 1024MB (43%)\n  - 액티브 트랜잭션: 47건\n  - 평균 응답시간: 3066ms\n  - DB 커넥션: 47/50 (94%)\n  - 초당 요청: 18.4건/초\n  - 에러율: 14.44%\n  - 현재 알람 레벨: 경고",
+      "expected_keywords": [
+        "db",
+        "connection"
+      ],
+      "expected_fault_types": [
+        "db",
+        "database",
+        "connect",
+        "pool"
+      ]
+    },
+    {
+      "case_id": "apm-029",
+      "name": "slow_response on docker_service_12001",
+      "scenario_key": "slow_response",
+      "server": "docker_service_12001",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 9841ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:28:00]\n\n서버: docker_service_12001\n감지된 이상 항목:\n  - 응답시간 9841ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 22.9%\n  - 메모리 사용률: 33.7%\n  - 힙 메모리: 441.2MB / 1024MB (43%)\n  - 액티브 트랜잭션: 23건\n  - 평균 응답시간: 9841ms\n  - DB 커넥션: 6/50 (12%)\n  - 초당 요청: 4.5건/초\n  - 에러율: 0.15%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "response",
+        "latency"
+      ],
+      "expected_fault_types": [
+        "response",
+        "latency",
+        "slow",
+        "timeout",
+        "performance"
+      ]
+    },
+    {
+      "case_id": "apm-030",
+      "name": "high_error_rate on docker_service_12001",
+      "scenario_key": "high_error_rate",
+      "server": "docker_service_12001",
+      "severity_expected": "경고",
+      "triggered_rules": [
+        "에러율 16.92% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:29:00]\n\n서버: docker_service_12001\n감지된 이상 항목:\n  - 에러율 16.92% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 30.5%\n  - 메모리 사용률: 48.0%\n  - 힙 메모리: 235.5MB / 1024MB (23%)\n  - 액티브 트랜잭션: 17건\n  - 평균 응답시간: 1467ms\n  - DB 커넥션: 13/50 (26%)\n  - 초당 요청: 9.1건/초\n  - 에러율: 16.92%\n  - 현재 알람 레벨: 경고",
+      "expected_keywords": [
+        "error",
+        "rate"
+      ],
+      "expected_fault_types": [
+        "error",
+        "failure",
+        "exception",
+        "fault"
+      ]
+    },
+    {
+      "case_id": "apm-031",
+      "name": "cpu_spike on Was_Agent_1",
+      "scenario_key": "cpu_spike",
+      "server": "Was_Agent_1",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "CPU 사용률 95.8% (임계값: 80.0%)",
+        "응답시간 2836ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "cpu",
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:30:00]\n\n서버: Was_Agent_1\n감지된 이상 항목:\n  - CPU 사용률 95.8% (임계값: 80.0%)\n  - 응답시간 2836ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 95.8%\n  - 메모리 사용률: 52.6%\n  - 힙 메모리: 447.5MB / 1024MB (44%)\n  - 액티브 트랜잭션: 37건\n  - 평균 응답시간: 2836ms\n  - DB 커넥션: 3/50 (6%)\n  - 초당 요청: 11.2건/초\n  - 에러율: 0.49%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "cpu",
+        "response"
+      ],
+      "expected_fault_types": [
+        "cpu",
+        "processor",
+        "saturation",
+        "bottleneck"
+      ]
+    },
+    {
+      "case_id": "apm-032",
+      "name": "memory_leak on Was_Agent_2",
+      "scenario_key": "memory_leak",
+      "server": "Was_Agent_2",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "메모리 사용률 96.3% (임계값: 90%)",
+        "힙 메모리 935.6MB/1024MB (91%, 임계값: 90%)"
+      ],
+      "triggered_metrics": [
+        "memory",
+        "heap"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:31:00]\n\n서버: Was_Agent_2\n감지된 이상 항목:\n  - 메모리 사용률 96.3% (임계값: 90%)\n  - 힙 메모리 935.6MB/1024MB (91%, 임계값: 90%)\n\n전체 지표:\n  - CPU 사용률: 37.2%\n  - 메모리 사용률: 96.3%\n  - 힙 메모리: 935.6MB / 1024MB (91%)\n  - 액티브 트랜잭션: 10건\n  - 평균 응답시간: 1793ms\n  - DB 커넥션: 10/50 (20%)\n  - 초당 요청: 8.8건/초\n  - 에러율: 0.34%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "memory",
+        "heap"
+      ],
+      "expected_fault_types": [
+        "memory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "apm-033",
+      "name": "db_connection_pool on docker_service_12001",
+      "scenario_key": "db_connection_pool",
+      "server": "docker_service_12001",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 4639ms (임계값: 2000.0ms)",
+        "DB 커넥션 50/50 (100%, 임계값: 80.0%)",
+        "에러율 10.62% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "db_connection",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:32:00]\n\n서버: docker_service_12001\n감지된 이상 항목:\n  - 응답시간 4639ms (임계값: 2000.0ms)\n  - DB 커넥션 50/50 (100%, 임계값: 80.0%)\n  - 에러율 10.62% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 30.5%\n  - 메모리 사용률: 48.1%\n  - 힙 메모리: 394.3MB / 1024MB (39%)\n  - 액티브 트랜잭션: 29건\n  - 평균 응답시간: 4639ms\n  - DB 커넥션: 50/50 (100%)\n  - 초당 요청: 14.7건/초\n  - 에러율: 10.62%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "db",
+        "connection"
+      ],
+      "expected_fault_types": [
+        "db",
+        "database",
+        "connect",
+        "pool"
+      ]
+    },
+    {
+      "case_id": "apm-034",
+      "name": "slow_response on JNode_20000",
+      "scenario_key": "slow_response",
+      "server": "JNode_20000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 9849ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:33:00]\n\n서버: JNode_20000\n감지된 이상 항목:\n  - 응답시간 9849ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 21.8%\n  - 메모리 사용률: 42.5%\n  - 힙 메모리: 316.1MB / 1024MB (31%)\n  - 액티브 트랜잭션: 30건\n  - 평균 응답시간: 9849ms\n  - DB 커넥션: 2/50 (4%)\n  - 초당 요청: 4.7건/초\n  - 에러율: 0.49%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "response",
+        "latency"
+      ],
+      "expected_fault_types": [
+        "response",
+        "latency",
+        "slow",
+        "timeout",
+        "performance"
+      ]
+    },
+    {
+      "case_id": "apm-035",
+      "name": "high_error_rate on Was_Agent_2",
+      "scenario_key": "high_error_rate",
+      "server": "Was_Agent_2",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "에러율 36.03% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:34:00]\n\n서버: Was_Agent_2\n감지된 이상 항목:\n  - 에러율 36.03% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 19.4%\n  - 메모리 사용률: 40.5%\n  - 힙 메모리: 530.7MB / 1024MB (52%)\n  - 액티브 트랜잭션: 17건\n  - 평균 응답시간: 1994ms\n  - DB 커넥션: 2/50 (4%)\n  - 초당 요청: 12.4건/초\n  - 에러율: 36.03%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "error",
+        "rate"
+      ],
+      "expected_fault_types": [
+        "error",
+        "failure",
+        "exception",
+        "fault"
+      ]
+    },
+    {
+      "case_id": "apm-036",
+      "name": "cpu_spike on docker_service_12001",
+      "scenario_key": "cpu_spike",
+      "server": "docker_service_12001",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "CPU 사용률 94.0% (임계값: 80.0%)",
+        "응답시간 2313ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "cpu",
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:35:00]\n\n서버: docker_service_12001\n감지된 이상 항목:\n  - CPU 사용률 94.0% (임계값: 80.0%)\n  - 응답시간 2313ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 94.0%\n  - 메모리 사용률: 35.5%\n  - 힙 메모리: 515.5MB / 1024MB (50%)\n  - 액티브 트랜잭션: 33건\n  - 평균 응답시간: 2313ms\n  - DB 커넥션: 7/50 (14%)\n  - 초당 요청: 19.7건/초\n  - 에러율: 0.04%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "cpu",
+        "response"
+      ],
+      "expected_fault_types": [
+        "cpu",
+        "processor",
+        "saturation",
+        "bottleneck"
+      ]
+    },
+    {
+      "case_id": "apm-037",
+      "name": "memory_leak on docker_service_12001",
+      "scenario_key": "memory_leak",
+      "server": "docker_service_12001",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "메모리 사용률 96.8% (임계값: 90%)",
+        "힙 메모리 963.4MB/1024MB (94%, 임계값: 90%)"
+      ],
+      "triggered_metrics": [
+        "memory",
+        "heap"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:36:00]\n\n서버: docker_service_12001\n감지된 이상 항목:\n  - 메모리 사용률 96.8% (임계값: 90%)\n  - 힙 메모리 963.4MB/1024MB (94%, 임계값: 90%)\n\n전체 지표:\n  - CPU 사용률: 24.5%\n  - 메모리 사용률: 96.8%\n  - 힙 메모리: 963.4MB / 1024MB (94%)\n  - 액티브 트랜잭션: 9건\n  - 평균 응답시간: 859ms\n  - DB 커넥션: 13/50 (26%)\n  - 초당 요청: 15.0건/초\n  - 에러율: 0.22%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "memory",
+        "heap"
+      ],
+      "expected_fault_types": [
+        "memory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "apm-038",
+      "name": "db_connection_pool on JNode_20000",
+      "scenario_key": "db_connection_pool",
+      "server": "JNode_20000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 5324ms (임계값: 2000.0ms)",
+        "DB 커넥션 49/50 (98%, 임계값: 80.0%)",
+        "에러율 7.44% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "db_connection",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:37:00]\n\n서버: JNode_20000\n감지된 이상 항목:\n  - 응답시간 5324ms (임계값: 2000.0ms)\n  - DB 커넥션 49/50 (98%, 임계값: 80.0%)\n  - 에러율 7.44% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 18.7%\n  - 메모리 사용률: 41.5%\n  - 힙 메모리: 399.7MB / 1024MB (39%)\n  - 액티브 트랜잭션: 44건\n  - 평균 응답시간: 5324ms\n  - DB 커넥션: 49/50 (98%)\n  - 초당 요청: 8.4건/초\n  - 에러율: 7.44%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "db",
+        "connection"
+      ],
+      "expected_fault_types": [
+        "db",
+        "database",
+        "connect",
+        "pool"
+      ]
+    },
+    {
+      "case_id": "apm-039",
+      "name": "slow_response on Was_Agent_2",
+      "scenario_key": "slow_response",
+      "server": "Was_Agent_2",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 5295ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:38:00]\n\n서버: Was_Agent_2\n감지된 이상 항목:\n  - 응답시간 5295ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 15.8%\n  - 메모리 사용률: 34.5%\n  - 힙 메모리: 454.0MB / 1024MB (44%)\n  - 액티브 트랜잭션: 19건\n  - 평균 응답시간: 5295ms\n  - DB 커넥션: 14/50 (28%)\n  - 초당 요청: 3.7건/초\n  - 에러율: 0.03%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "response",
+        "latency"
+      ],
+      "expected_fault_types": [
+        "response",
+        "latency",
+        "slow",
+        "timeout",
+        "performance"
+      ]
+    },
+    {
+      "case_id": "apm-040",
+      "name": "high_error_rate on was_sample_9200",
+      "scenario_key": "high_error_rate",
+      "server": "was_sample_9200",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "에러율 37.94% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:39:00]\n\n서버: was_sample_9200\n감지된 이상 항목:\n  - 에러율 37.94% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 16.9%\n  - 메모리 사용률: 33.5%\n  - 힙 메모리: 458.2MB / 1024MB (45%)\n  - 액티브 트랜잭션: 12건\n  - 평균 응답시간: 1316ms\n  - DB 커넥션: 2/50 (4%)\n  - 초당 요청: 11.2건/초\n  - 에러율: 37.94%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "error",
+        "rate"
+      ],
+      "expected_fault_types": [
+        "error",
+        "failure",
+        "exception",
+        "fault"
+      ]
+    },
+    {
+      "case_id": "apm-041",
+      "name": "cpu_spike on JNode_21000",
+      "scenario_key": "cpu_spike",
+      "server": "JNode_21000",
+      "severity_expected": "경고",
+      "triggered_rules": [
+        "CPU 사용률 89.8% (임계값: 80.0%)",
+        "응답시간 2288ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "cpu",
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:40:00]\n\n서버: JNode_21000\n감지된 이상 항목:\n  - CPU 사용률 89.8% (임계값: 80.0%)\n  - 응답시간 2288ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 89.8%\n  - 메모리 사용률: 54.2%\n  - 힙 메모리: 434.4MB / 1024MB (42%)\n  - 액티브 트랜잭션: 35건\n  - 평균 응답시간: 2288ms\n  - DB 커넥션: 10/50 (20%)\n  - 초당 요청: 7.8건/초\n  - 에러율: 0.14%\n  - 현재 알람 레벨: 경고",
+      "expected_keywords": [
+        "cpu",
+        "response"
+      ],
+      "expected_fault_types": [
+        "cpu",
+        "processor",
+        "saturation",
+        "bottleneck"
+      ]
+    },
+    {
+      "case_id": "apm-042",
+      "name": "memory_leak on docker_resource_12000",
+      "scenario_key": "memory_leak",
+      "server": "docker_resource_12000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "메모리 사용률 90.7% (임계값: 90%)",
+        "힙 메모리 940.0MB/1024MB (92%, 임계값: 90%)"
+      ],
+      "triggered_metrics": [
+        "memory",
+        "heap"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:41:00]\n\n서버: docker_resource_12000\n감지된 이상 항목:\n  - 메모리 사용률 90.7% (임계값: 90%)\n  - 힙 메모리 940.0MB/1024MB (92%, 임계값: 90%)\n\n전체 지표:\n  - CPU 사용률: 34.8%\n  - 메모리 사용률: 90.7%\n  - 힙 메모리: 940.0MB / 1024MB (92%)\n  - 액티브 트랜잭션: 4건\n  - 평균 응답시간: 1891ms\n  - DB 커넥션: 14/50 (28%)\n  - 초당 요청: 18.7건/초\n  - 에러율: 0.39%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "memory",
+        "heap"
+      ],
+      "expected_fault_types": [
+        "memory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "apm-043",
+      "name": "db_connection_pool on docker_finance_13000",
+      "scenario_key": "db_connection_pool",
+      "server": "docker_finance_13000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 6621ms (임계값: 2000.0ms)",
+        "DB 커넥션 46/50 (92%, 임계값: 80.0%)",
+        "에러율 13.85% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "db_connection",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:42:00]\n\n서버: docker_finance_13000\n감지된 이상 항목:\n  - 응답시간 6621ms (임계값: 2000.0ms)\n  - DB 커넥션 46/50 (92%, 임계값: 80.0%)\n  - 에러율 13.85% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 39.8%\n  - 메모리 사용률: 41.3%\n  - 힙 메모리: 383.1MB / 1024MB (37%)\n  - 액티브 트랜잭션: 39건\n  - 평균 응답시간: 6621ms\n  - DB 커넥션: 46/50 (92%)\n  - 초당 요청: 12.7건/초\n  - 에러율: 13.85%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "db",
+        "connection"
+      ],
+      "expected_fault_types": [
+        "db",
+        "database",
+        "connect",
+        "pool"
+      ]
+    },
+    {
+      "case_id": "apm-044",
+      "name": "slow_response on Was_Agent_1",
+      "scenario_key": "slow_response",
+      "server": "Was_Agent_1",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 7338ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:43:00]\n\n서버: Was_Agent_1\n감지된 이상 항목:\n  - 응답시간 7338ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 35.8%\n  - 메모리 사용률: 31.3%\n  - 힙 메모리: 327.5MB / 1024MB (32%)\n  - 액티브 트랜잭션: 26건\n  - 평균 응답시간: 7338ms\n  - DB 커넥션: 7/50 (14%)\n  - 초당 요청: 3.2건/초\n  - 에러율: 0.35%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "response",
+        "latency"
+      ],
+      "expected_fault_types": [
+        "response",
+        "latency",
+        "slow",
+        "timeout",
+        "performance"
+      ]
+    },
+    {
+      "case_id": "apm-045",
+      "name": "high_error_rate on docker_finance_13000",
+      "scenario_key": "high_error_rate",
+      "server": "docker_finance_13000",
+      "severity_expected": "경고",
+      "triggered_rules": [
+        "에러율 16.45% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:44:00]\n\n서버: docker_finance_13000\n감지된 이상 항목:\n  - 에러율 16.45% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 20.7%\n  - 메모리 사용률: 48.2%\n  - 힙 메모리: 235.5MB / 1024MB (23%)\n  - 액티브 트랜잭션: 27건\n  - 평균 응답시간: 1994ms\n  - DB 커넥션: 8/50 (16%)\n  - 초당 요청: 15.2건/초\n  - 에러율: 16.45%\n  - 현재 알람 레벨: 경고",
+      "expected_keywords": [
+        "error",
+        "rate"
+      ],
+      "expected_fault_types": [
+        "error",
+        "failure",
+        "exception",
+        "fault"
+      ]
+    },
+    {
+      "case_id": "apm-046",
+      "name": "cpu_spike on JNode_21000",
+      "scenario_key": "cpu_spike",
+      "server": "JNode_21000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "CPU 사용률 92.5% (임계값: 80.0%)",
+        "응답시간 2818ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "cpu",
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:45:00]\n\n서버: JNode_21000\n감지된 이상 항목:\n  - CPU 사용률 92.5% (임계값: 80.0%)\n  - 응답시간 2818ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 92.5%\n  - 메모리 사용률: 45.8%\n  - 힙 메모리: 361.3MB / 1024MB (35%)\n  - 액티브 트랜잭션: 27건\n  - 평균 응답시간: 2818ms\n  - DB 커넥션: 11/50 (22%)\n  - 초당 요청: 10.1건/초\n  - 에러율: 0.47%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "cpu",
+        "response"
+      ],
+      "expected_fault_types": [
+        "cpu",
+        "processor",
+        "saturation",
+        "bottleneck"
+      ]
+    },
+    {
+      "case_id": "apm-047",
+      "name": "memory_leak on docker_resource_12000",
+      "scenario_key": "memory_leak",
+      "server": "docker_resource_12000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "메모리 사용률 94.1% (임계값: 90%)",
+        "힙 메모리 1014.1MB/1024MB (99%, 임계값: 90%)"
+      ],
+      "triggered_metrics": [
+        "memory",
+        "heap"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:46:00]\n\n서버: docker_resource_12000\n감지된 이상 항목:\n  - 메모리 사용률 94.1% (임계값: 90%)\n  - 힙 메모리 1014.1MB/1024MB (99%, 임계값: 90%)\n\n전체 지표:\n  - CPU 사용률: 16.6%\n  - 메모리 사용률: 94.1%\n  - 힙 메모리: 1014.1MB / 1024MB (99%)\n  - 액티브 트랜잭션: 2건\n  - 평균 응답시간: 1684ms\n  - DB 커넥션: 5/50 (10%)\n  - 초당 요청: 7.1건/초\n  - 에러율: 0.18%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "memory",
+        "heap"
+      ],
+      "expected_fault_types": [
+        "memory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "apm-048",
+      "name": "db_connection_pool on Was_Agent_1",
+      "scenario_key": "db_connection_pool",
+      "server": "Was_Agent_1",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 7931ms (임계값: 2000.0ms)",
+        "DB 커넥션 49/50 (98%, 임계값: 80.0%)",
+        "에러율 6.57% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "db_connection",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:47:00]\n\n서버: Was_Agent_1\n감지된 이상 항목:\n  - 응답시간 7931ms (임계값: 2000.0ms)\n  - DB 커넥션 49/50 (98%, 임계값: 80.0%)\n  - 에러율 6.57% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 14.1%\n  - 메모리 사용률: 50.3%\n  - 힙 메모리: 341.0MB / 1024MB (33%)\n  - 액티브 트랜잭션: 26건\n  - 평균 응답시간: 7931ms\n  - DB 커넥션: 49/50 (98%)\n  - 초당 요청: 10.1건/초\n  - 에러율: 6.57%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "db",
+        "connection"
+      ],
+      "expected_fault_types": [
+        "db",
+        "database",
+        "connect",
+        "pool"
+      ]
+    },
+    {
+      "case_id": "apm-049",
+      "name": "slow_response on Was_Agent_2",
+      "scenario_key": "slow_response",
+      "server": "Was_Agent_2",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 6794ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:48:00]\n\n서버: Was_Agent_2\n감지된 이상 항목:\n  - 응답시간 6794ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 21.2%\n  - 메모리 사용률: 55.9%\n  - 힙 메모리: 477.1MB / 1024MB (47%)\n  - 액티브 트랜잭션: 34건\n  - 평균 응답시간: 6794ms\n  - DB 커넥션: 5/50 (10%)\n  - 초당 요청: 1.1건/초\n  - 에러율: 0.29%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "response",
+        "latency"
+      ],
+      "expected_fault_types": [
+        "response",
+        "latency",
+        "slow",
+        "timeout",
+        "performance"
+      ]
+    },
+    {
+      "case_id": "apm-050",
+      "name": "high_error_rate on was_sample_01",
+      "scenario_key": "high_error_rate",
+      "server": "was_sample_01",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "에러율 21.6% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:49:00]\n\n서버: was_sample_01\n감지된 이상 항목:\n  - 에러율 21.6% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 17.7%\n  - 메모리 사용률: 34.0%\n  - 힙 메모리: 562.6MB / 1024MB (55%)\n  - 액티브 트랜잭션: 15건\n  - 평균 응답시간: 1429ms\n  - DB 커넥션: 6/50 (12%)\n  - 초당 요청: 10.1건/초\n  - 에러율: 21.6%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "error",
+        "rate"
+      ],
+      "expected_fault_types": [
+        "error",
+        "failure",
+        "exception",
+        "fault"
+      ]
+    },
+    {
+      "case_id": "apm-051",
+      "name": "cpu_spike on was_sample_9200",
+      "scenario_key": "cpu_spike",
+      "server": "was_sample_9200",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "CPU 사용률 97.1% (임계값: 80.0%)"
+      ],
+      "triggered_metrics": [
+        "cpu"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:50:00]\n\n서버: was_sample_9200\n감지된 이상 항목:\n  - CPU 사용률 97.1% (임계값: 80.0%)\n\n전체 지표:\n  - CPU 사용률: 97.1%\n  - 메모리 사용률: 58.6%\n  - 힙 메모리: 476.9MB / 1024MB (47%)\n  - 액티브 트랜잭션: 22건\n  - 평균 응답시간: 1798ms\n  - DB 커넥션: 14/50 (28%)\n  - 초당 요청: 15.3건/초\n  - 에러율: 0.4%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "cpu",
+        "response"
+      ],
+      "expected_fault_types": [
+        "cpu",
+        "processor",
+        "saturation",
+        "bottleneck"
+      ]
+    },
+    {
+      "case_id": "apm-052",
+      "name": "memory_leak on docker_finance_13000",
+      "scenario_key": "memory_leak",
+      "server": "docker_finance_13000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "메모리 사용률 90.4% (임계값: 90%)",
+        "힙 메모리 1008.2MB/1024MB (98%, 임계값: 90%)"
+      ],
+      "triggered_metrics": [
+        "memory",
+        "heap"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:51:00]\n\n서버: docker_finance_13000\n감지된 이상 항목:\n  - 메모리 사용률 90.4% (임계값: 90%)\n  - 힙 메모리 1008.2MB/1024MB (98%, 임계값: 90%)\n\n전체 지표:\n  - CPU 사용률: 22.5%\n  - 메모리 사용률: 90.4%\n  - 힙 메모리: 1008.2MB / 1024MB (98%)\n  - 액티브 트랜잭션: 3건\n  - 평균 응답시간: 1827ms\n  - DB 커넥션: 15/50 (30%)\n  - 초당 요청: 15.5건/초\n  - 에러율: 0.41%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "memory",
+        "heap"
+      ],
+      "expected_fault_types": [
+        "memory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "apm-053",
+      "name": "db_connection_pool on docker_resource_12000",
+      "scenario_key": "db_connection_pool",
+      "server": "docker_resource_12000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 5839ms (임계값: 2000.0ms)",
+        "DB 커넥션 45/50 (90%, 임계값: 80.0%)",
+        "에러율 19.86% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "db_connection",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:52:00]\n\n서버: docker_resource_12000\n감지된 이상 항목:\n  - 응답시간 5839ms (임계값: 2000.0ms)\n  - DB 커넥션 45/50 (90%, 임계값: 80.0%)\n  - 에러율 19.86% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 10.2%\n  - 메모리 사용률: 59.8%\n  - 힙 메모리: 256.0MB / 1024MB (25%)\n  - 액티브 트랜잭션: 26건\n  - 평균 응답시간: 5839ms\n  - DB 커넥션: 45/50 (90%)\n  - 초당 요청: 17.5건/초\n  - 에러율: 19.86%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "db",
+        "connection"
+      ],
+      "expected_fault_types": [
+        "db",
+        "database",
+        "connect",
+        "pool"
+      ]
+    },
+    {
+      "case_id": "apm-054",
+      "name": "slow_response on Was_Agent_1",
+      "scenario_key": "slow_response",
+      "server": "Was_Agent_1",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 8752ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:53:00]\n\n서버: Was_Agent_1\n감지된 이상 항목:\n  - 응답시간 8752ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 12.6%\n  - 메모리 사용률: 39.1%\n  - 힙 메모리: 334.9MB / 1024MB (33%)\n  - 액티브 트랜잭션: 34건\n  - 평균 응답시간: 8752ms\n  - DB 커넥션: 11/50 (22%)\n  - 초당 요청: 4.5건/초\n  - 에러율: 0.31%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "response",
+        "latency"
+      ],
+      "expected_fault_types": [
+        "response",
+        "latency",
+        "slow",
+        "timeout",
+        "performance"
+      ]
+    },
+    {
+      "case_id": "apm-055",
+      "name": "high_error_rate on was_sample_01",
+      "scenario_key": "high_error_rate",
+      "server": "was_sample_01",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "에러율 28.3% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:54:00]\n\n서버: was_sample_01\n감지된 이상 항목:\n  - 에러율 28.3% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 28.1%\n  - 메모리 사용률: 40.4%\n  - 힙 메모리: 362.0MB / 1024MB (35%)\n  - 액티브 트랜잭션: 10건\n  - 평균 응답시간: 1059ms\n  - DB 커넥션: 7/50 (14%)\n  - 초당 요청: 14.3건/초\n  - 에러율: 28.3%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "error",
+        "rate"
+      ],
+      "expected_fault_types": [
+        "error",
+        "failure",
+        "exception",
+        "fault"
+      ]
+    },
+    {
+      "case_id": "apm-056",
+      "name": "cpu_spike on docker_finance_13000",
+      "scenario_key": "cpu_spike",
+      "server": "docker_finance_13000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "CPU 사용률 94.4% (임계값: 80.0%)",
+        "응답시간 2006ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "cpu",
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:55:00]\n\n서버: docker_finance_13000\n감지된 이상 항목:\n  - CPU 사용률 94.4% (임계값: 80.0%)\n  - 응답시간 2006ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 94.4%\n  - 메모리 사용률: 35.9%\n  - 힙 메모리: 456.4MB / 1024MB (45%)\n  - 액티브 트랜잭션: 22건\n  - 평균 응답시간: 2006ms\n  - DB 커넥션: 12/50 (24%)\n  - 초당 요청: 7.9건/초\n  - 에러율: 0.06%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "cpu",
+        "response"
+      ],
+      "expected_fault_types": [
+        "cpu",
+        "processor",
+        "saturation",
+        "bottleneck"
+      ]
+    },
+    {
+      "case_id": "apm-057",
+      "name": "memory_leak on Was_Agent_1",
+      "scenario_key": "memory_leak",
+      "server": "Was_Agent_1",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "메모리 사용률 94.6% (임계값: 90%)"
+      ],
+      "triggered_metrics": [
+        "memory"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:56:00]\n\n서버: Was_Agent_1\n감지된 이상 항목:\n  - 메모리 사용률 94.6% (임계값: 90%)\n\n전체 지표:\n  - CPU 사용률: 32.4%\n  - 메모리 사용률: 94.6%\n  - 힙 메모리: 904.1MB / 1024MB (88%)\n  - 액티브 트랜잭션: 4건\n  - 평균 응답시간: 1710ms\n  - DB 커넥션: 9/50 (18%)\n  - 초당 요청: 16.3건/초\n  - 에러율: 0.21%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "memory",
+        "heap"
+      ],
+      "expected_fault_types": [
+        "memory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "apm-058",
+      "name": "db_connection_pool on docker_finance_13000",
+      "scenario_key": "db_connection_pool",
+      "server": "docker_finance_13000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 7126ms (임계값: 2000.0ms)",
+        "DB 커넥션 48/50 (96%, 임계값: 80.0%)",
+        "에러율 19.98% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "response_time",
+        "db_connection",
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:57:00]\n\n서버: docker_finance_13000\n감지된 이상 항목:\n  - 응답시간 7126ms (임계값: 2000.0ms)\n  - DB 커넥션 48/50 (96%, 임계값: 80.0%)\n  - 에러율 19.98% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 21.0%\n  - 메모리 사용률: 45.7%\n  - 힙 메모리: 429.6MB / 1024MB (42%)\n  - 액티브 트랜잭션: 26건\n  - 평균 응답시간: 7126ms\n  - DB 커넥션: 48/50 (96%)\n  - 초당 요청: 8.0건/초\n  - 에러율: 19.98%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "db",
+        "connection"
+      ],
+      "expected_fault_types": [
+        "db",
+        "database",
+        "connect",
+        "pool"
+      ]
+    },
+    {
+      "case_id": "apm-059",
+      "name": "slow_response on JNode_21000",
+      "scenario_key": "slow_response",
+      "server": "JNode_21000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "응답시간 5547ms (임계값: 2000.0ms)"
+      ],
+      "triggered_metrics": [
+        "response_time"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:58:00]\n\n서버: JNode_21000\n감지된 이상 항목:\n  - 응답시간 5547ms (임계값: 2000.0ms)\n\n전체 지표:\n  - CPU 사용률: 23.4%\n  - 메모리 사용률: 58.7%\n  - 힙 메모리: 425.6MB / 1024MB (42%)\n  - 액티브 트랜잭션: 28건\n  - 평균 응답시간: 5547ms\n  - DB 커넥션: 8/50 (16%)\n  - 초당 요청: 1.8건/초\n  - 에러율: 0.36%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "response",
+        "latency"
+      ],
+      "expected_fault_types": [
+        "response",
+        "latency",
+        "slow",
+        "timeout",
+        "performance"
+      ]
+    },
+    {
+      "case_id": "apm-060",
+      "name": "high_error_rate on docker_finance_13000",
+      "scenario_key": "high_error_rate",
+      "server": "docker_finance_13000",
+      "severity_expected": "심각",
+      "triggered_rules": [
+        "에러율 29.86% (임계값: 5%)"
+      ],
+      "triggered_metrics": [
+        "error_rate"
+      ],
+      "context": "[APM 모니터링 이상 감지 - 2026-01-01 00:59:00]\n\n서버: docker_finance_13000\n감지된 이상 항목:\n  - 에러율 29.86% (임계값: 5%)\n\n전체 지표:\n  - CPU 사용률: 31.3%\n  - 메모리 사용률: 36.8%\n  - 힙 메모리: 489.3MB / 1024MB (48%)\n  - 액티브 트랜잭션: 18건\n  - 평균 응답시간: 1815ms\n  - DB 커넥션: 8/50 (16%)\n  - 초당 요청: 11.7건/초\n  - 에러율: 29.86%\n  - 현재 알람 레벨: 심각",
+      "expected_keywords": [
+        "error",
+        "rate"
+      ],
+      "expected_fault_types": [
+        "error",
+        "failure",
+        "exception",
+        "fault"
+      ]
+    }
+  ],
+  "log_cases": [
+    {
+      "case_id": "log-001",
+      "name": "connection_refused v1 on agent_sample_a",
+      "scenario_key": "connection_refused",
+      "variant": 0,
+      "module": "agent_sample_a",
+      "context": "[Log error]\nmodule=agent_sample_a\nline=ERROR [DataCollector] Connection refused to target host: 10.10.19.97:1521",
+      "expected_error_types": [
+        "network",
+        "connect",
+        "refused"
+      ]
+    },
+    {
+      "case_id": "log-002",
+      "name": "socket_timeout v1 on agent_sample_b",
+      "scenario_key": "socket_timeout",
+      "variant": 0,
+      "module": "agent_sample_b",
+      "context": "[Log error]\nmodule=agent_sample_b\nline=ERROR [DataCollector] Socket timeout after 21382ms - host: 10.10.29.38",
+      "expected_error_types": [
+        "timeout",
+        "network",
+        "socket"
+      ]
+    },
+    {
+      "case_id": "log-003",
+      "name": "db_query_failed v1 on agent_sample_c",
+      "scenario_key": "db_query_failed",
+      "variant": 0,
+      "module": "agent_sample_c",
+      "context": "[Log error]\nmodule=agent_sample_c\nline=ERROR [DBConnector] Failed to execute query: ORA-2234: table or view does not exist",
+      "expected_error_types": [
+        "db",
+        "database",
+        "query",
+        "sql",
+        "oracle"
+      ]
+    },
+    {
+      "case_id": "log-004",
+      "name": "queue_overflow v1 on data_forwarder_01",
+      "scenario_key": "queue_overflow",
+      "variant": 0,
+      "module": "data_forwarder_01",
+      "context": "[Log error]\nmodule=data_forwarder_01\nline=ERROR [MetricForwarder] Send failed - queue overflow (1327 items pending)",
+      "expected_error_types": [
+        "queue",
+        "overflow",
+        "capacity",
+        "forward",
+        "backpressure"
+      ]
+    },
+    {
+      "case_id": "log-005",
+      "name": "heartbeat_lost v1 on data_forwarder_02",
+      "scenario_key": "heartbeat_lost",
+      "variant": 0,
+      "module": "data_forwarder_02",
+      "context": "[Log error]\nmodule=data_forwarder_02\nline=ERROR [AgentManager] Agent heartbeat lost: agent_id=agent_06",
+      "expected_error_types": [
+        "agent",
+        "heartbeat",
+        "connect",
+        "availability"
+      ]
+    },
+    {
+      "case_id": "log-006",
+      "name": "config_permission v1 on agent_sample_a",
+      "scenario_key": "config_permission",
+      "variant": 0,
+      "module": "agent_sample_a",
+      "context": "[Log error]\nmodule=agent_sample_a\nline=ERROR [ConfigLoader] Failed to load config file: /etc/collector/config.yml - Permission denied",
+      "expected_error_types": [
+        "permission",
+        "config",
+        "access",
+        "file"
+      ]
+    },
+    {
+      "case_id": "log-007",
+      "name": "unhandled_exception v1 on agent_sample_b",
+      "scenario_key": "unhandled_exception",
+      "variant": 0,
+      "module": "agent_sample_b",
+      "context": "[Log error]\nmodule=agent_sample_b\nline=FATAL [DataCollector] Unhandled exception in collection thread",
+      "expected_error_types": [
+        "exception",
+        "fatal",
+        "thread",
+        "crash"
+      ]
+    },
+    {
+      "case_id": "log-008",
+      "name": "http_503 v1 on agent_sample_c",
+      "scenario_key": "http_503",
+      "variant": 0,
+      "module": "agent_sample_c",
+      "context": "[Log error]\nmodule=agent_sample_c\nline=ERROR [HTTPClient] Request failed with status 503: Service Unavailable",
+      "expected_error_types": [
+        "http",
+        "unavailable",
+        "service",
+        "server"
+      ]
+    },
+    {
+      "case_id": "log-009",
+      "name": "jmx_failed v1 on data_forwarder_01",
+      "scenario_key": "jmx_failed",
+      "variant": 0,
+      "module": "data_forwarder_01",
+      "context": "[Log error]\nmodule=data_forwarder_01\nline=ERROR [JVMMonitor] JMX connection failed: 10.10.3.200:9372",
+      "expected_error_types": [
+        "jmx",
+        "connect",
+        "network",
+        "jvm"
+      ]
+    },
+    {
+      "case_id": "log-010",
+      "name": "malformed_log v1 on data_forwarder_02",
+      "scenario_key": "malformed_log",
+      "variant": 0,
+      "module": "data_forwarder_02",
+      "context": "[Log error]\nmodule=data_forwarder_02\nline=ERROR [LogParser] Malformed log entry - skipping 5 lines",
+      "expected_error_types": [
+        "parse",
+        "malformed",
+        "format",
+        "log"
+      ]
+    },
+    {
+      "case_id": "log-011",
+      "name": "out_of_memory v1 on agent_sample_a",
+      "scenario_key": "out_of_memory",
+      "variant": 0,
+      "module": "agent_sample_a",
+      "context": "[Log error]\nmodule=agent_sample_a\nline=Exception in thread collector-worker-1 java.lang.OutOfMemoryError: Java heap space",
+      "expected_error_types": [
+        "memory",
+        "oom",
+        "outofmemory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "log-012",
+      "name": "ssl_expired v1 on agent_sample_b",
+      "scenario_key": "ssl_expired",
+      "variant": 0,
+      "module": "agent_sample_b",
+      "context": "[Log error]\nmodule=agent_sample_b\nline=ERROR [SSLHandler] SSL handshake failed: certificate expired",
+      "expected_error_types": [
+        "ssl",
+        "certificate",
+        "tls",
+        "security"
+      ]
+    },
+    {
+      "case_id": "log-013",
+      "name": "process_hang v1 on agent_sample_c",
+      "scenario_key": "process_hang",
+      "variant": 0,
+      "module": "agent_sample_c",
+      "context": "[Log error]\nmodule=agent_sample_c\nline=Critical [WatchDog] Process 98330 not responding - triggering restart",
+      "expected_error_types": [
+        "process",
+        "hang",
+        "restart",
+        "availability"
+      ]
+    },
+    {
+      "case_id": "log-014",
+      "name": "disk_write_failed v1 on data_forwarder_01",
+      "scenario_key": "disk_write_failed",
+      "variant": 0,
+      "module": "data_forwarder_01",
+      "context": "[Log error]\nmodule=data_forwarder_01\nline=ERROR [DataBuffer] Buffer flush failed - disk write error: /data/buffer/4.buf",
+      "expected_error_types": [
+        "disk",
+        "io",
+        "buffer",
+        "write",
+        "storage"
+      ]
+    },
+    {
+      "case_id": "log-015",
+      "name": "connection_refused v2 on data_forwarder_02",
+      "scenario_key": "connection_refused",
+      "variant": 1,
+      "module": "data_forwarder_02",
+      "context": "[Log error]\nmodule=data_forwarder_02\nline=ERROR [DataCollector] java.net.ConnectException: Connection refused - 10.10.1.160:5432",
+      "expected_error_types": [
+        "network",
+        "connect",
+        "refused"
+      ]
+    },
+    {
+      "case_id": "log-016",
+      "name": "socket_timeout v2 on agent_sample_a",
+      "scenario_key": "socket_timeout",
+      "variant": 1,
+      "module": "agent_sample_a",
+      "context": "[Log error]\nmodule=agent_sample_a\nline=ERROR [DataCollector] java.net.SocketTimeoutException: Read timed out (26646ms) host=10.10.11.52",
+      "expected_error_types": [
+        "timeout",
+        "network",
+        "socket"
+      ]
+    },
+    {
+      "case_id": "log-017",
+      "name": "db_query_failed v2 on agent_sample_b",
+      "scenario_key": "db_query_failed",
+      "variant": 1,
+      "module": "agent_sample_b",
+      "context": "[Log error]\nmodule=agent_sample_b\nline=ERROR [DBConnector] SQLException while executing statement: ORA-7946 insufficient privileges",
+      "expected_error_types": [
+        "db",
+        "database",
+        "query",
+        "sql",
+        "oracle"
+      ]
+    },
+    {
+      "case_id": "log-018",
+      "name": "queue_overflow v2 on agent_sample_c",
+      "scenario_key": "queue_overflow",
+      "variant": 1,
+      "module": "agent_sample_c",
+      "context": "[Log error]\nmodule=agent_sample_c\nline=ERROR [MetricForwarder] Dropping metrics: outbound buffer full, 1837 entries queued",
+      "expected_error_types": [
+        "queue",
+        "overflow",
+        "capacity",
+        "forward",
+        "backpressure"
+      ]
+    },
+    {
+      "case_id": "log-019",
+      "name": "heartbeat_lost v2 on data_forwarder_01",
+      "scenario_key": "heartbeat_lost",
+      "variant": 1,
+      "module": "data_forwarder_01",
+      "context": "[Log error]\nmodule=data_forwarder_01\nline=ERROR [AgentManager] No keepalive from agent_11 for 90s - marking agent unreachable",
+      "expected_error_types": [
+        "agent",
+        "heartbeat",
+        "connect",
+        "availability"
+      ]
+    },
+    {
+      "case_id": "log-020",
+      "name": "config_permission v2 on data_forwarder_02",
+      "scenario_key": "config_permission",
+      "variant": 1,
+      "module": "data_forwarder_02",
+      "context": "[Log error]\nmodule=data_forwarder_02\nline=ERROR [ConfigLoader] java.io.IOException: /opt/agent/settings.conf (Permission denied)",
+      "expected_error_types": [
+        "permission",
+        "config",
+        "access",
+        "file"
+      ]
+    },
+    {
+      "case_id": "log-021",
+      "name": "unhandled_exception v2 on agent_sample_a",
+      "scenario_key": "unhandled_exception",
+      "variant": 1,
+      "module": "agent_sample_a",
+      "context": "[Log error]\nmodule=agent_sample_a\nline=FATAL [DataCollector] Uncaught java.lang.NullPointerException in collector-worker-2, thread terminated",
+      "expected_error_types": [
+        "exception",
+        "fatal",
+        "thread",
+        "crash"
+      ]
+    },
+    {
+      "case_id": "log-022",
+      "name": "http_503 v2 on agent_sample_b",
+      "scenario_key": "http_503",
+      "variant": 1,
+      "module": "agent_sample_b",
+      "context": "[Log error]\nmodule=agent_sample_b\nline=ERROR [HTTPClient] Upstream returned HTTP 503 - retrying with backoff",
+      "expected_error_types": [
+        "http",
+        "unavailable",
+        "service",
+        "server"
+      ]
+    },
+    {
+      "case_id": "log-023",
+      "name": "jmx_failed v2 on agent_sample_c",
+      "scenario_key": "jmx_failed",
+      "variant": 1,
+      "module": "agent_sample_c",
+      "context": "[Log error]\nmodule=agent_sample_c\nline=ERROR [JVMMonitor] Cannot open JMX connector to 10.10.36.168:9529 - jmxrmi lookup failed",
+      "expected_error_types": [
+        "jmx",
+        "connect",
+        "network",
+        "jvm"
+      ]
+    },
+    {
+      "case_id": "log-024",
+      "name": "malformed_log v2 on data_forwarder_01",
+      "scenario_key": "malformed_log",
+      "variant": 1,
+      "module": "data_forwarder_01",
+      "context": "[Log error]\nmodule=data_forwarder_01\nline=ERROR [LogParser] Unparseable timestamp format, 73 records discarded",
+      "expected_error_types": [
+        "parse",
+        "malformed",
+        "format",
+        "log"
+      ]
+    },
+    {
+      "case_id": "log-025",
+      "name": "out_of_memory v2 on data_forwarder_02",
+      "scenario_key": "out_of_memory",
+      "variant": 1,
+      "module": "data_forwarder_02",
+      "context": "[Log error]\nmodule=data_forwarder_02\nline=FATAL [JVMMonitor] java.lang.OutOfMemoryError: GC overhead limit exceeded",
+      "expected_error_types": [
+        "memory",
+        "oom",
+        "outofmemory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "log-026",
+      "name": "ssl_expired v2 on agent_sample_a",
+      "scenario_key": "ssl_expired",
+      "variant": 1,
+      "module": "agent_sample_a",
+      "context": "[Log error]\nmodule=agent_sample_a\nline=ERROR [SSLHandler] javax.net.ssl.SSLHandshakeException: PKIX path validation failed - cert expired",
+      "expected_error_types": [
+        "ssl",
+        "certificate",
+        "tls",
+        "security"
+      ]
+    },
+    {
+      "case_id": "log-027",
+      "name": "process_hang v2 on agent_sample_b",
+      "scenario_key": "process_hang",
+      "variant": 1,
+      "module": "agent_sample_b",
+      "context": "[Log error]\nmodule=agent_sample_b\nline=Critical [WatchDog] PID 77011 unresponsive for 120s, sending SIGKILL and respawning",
+      "expected_error_types": [
+        "process",
+        "hang",
+        "restart",
+        "availability"
+      ]
+    },
+    {
+      "case_id": "log-028",
+      "name": "disk_write_failed v2 on agent_sample_c",
+      "scenario_key": "disk_write_failed",
+      "variant": 1,
+      "module": "agent_sample_c",
+      "context": "[Log error]\nmodule=agent_sample_c\nline=ERROR [DataBuffer] java.io.IOException: No space left on device while writing /data/buffer/4.buf",
+      "expected_error_types": [
+        "disk",
+        "io",
+        "buffer",
+        "write",
+        "storage"
+      ]
+    },
+    {
+      "case_id": "log-029",
+      "name": "connection_refused v3 on data_forwarder_01",
+      "scenario_key": "connection_refused",
+      "variant": 2,
+      "module": "data_forwarder_01",
+      "context": "[Log error]\nmodule=data_forwarder_01\nline=ERROR [MetricForwarder] Failed to connect to 10.10.41.164:9090 after 3 retries (ECONNREFUSED)",
+      "expected_error_types": [
+        "network",
+        "connect",
+        "refused"
+      ]
+    },
+    {
+      "case_id": "log-030",
+      "name": "socket_timeout v3 on data_forwarder_02",
+      "scenario_key": "socket_timeout",
+      "variant": 2,
+      "module": "data_forwarder_02",
+      "context": "[Log error]\nmodule=data_forwarder_02\nline=ERROR [HTTPClient] Request to 10.10.21.161 aborted: no response within 25560ms",
+      "expected_error_types": [
+        "timeout",
+        "network",
+        "socket"
+      ]
+    },
+    {
+      "case_id": "log-031",
+      "name": "db_query_failed v3 on agent_sample_a",
+      "scenario_key": "db_query_failed",
+      "variant": 2,
+      "module": "agent_sample_a",
+      "context": "[Log error]\nmodule=agent_sample_a\nline=ERROR [DBConnector] Query aborted - ORA-5513 deadlock detected while waiting for resource",
+      "expected_error_types": [
+        "db",
+        "database",
+        "query",
+        "sql",
+        "oracle"
+      ]
+    },
+    {
+      "case_id": "log-032",
+      "name": "queue_overflow v3 on agent_sample_b",
+      "scenario_key": "queue_overflow",
+      "variant": 2,
+      "module": "agent_sample_b",
+      "context": "[Log error]\nmodule=agent_sample_b\nline=ERROR [DataBuffer] Backpressure limit exceeded - 4409 pending items, rejecting new writes",
+      "expected_error_types": [
+        "queue",
+        "overflow",
+        "capacity",
+        "forward",
+        "backpressure"
+      ]
+    },
+    {
+      "case_id": "log-033",
+      "name": "heartbeat_lost v3 on agent_sample_c",
+      "scenario_key": "heartbeat_lost",
+      "variant": 2,
+      "module": "agent_sample_c",
+      "context": "[Log error]\nmodule=agent_sample_c\nline=ERROR [HealthCheck] Agent agent_03 missed 3 consecutive heartbeats",
+      "expected_error_types": [
+        "agent",
+        "heartbeat",
+        "connect",
+        "availability"
+      ]
+    },
+    {
+      "case_id": "log-034",
+      "name": "config_permission v3 on data_forwarder_01",
+      "scenario_key": "config_permission",
+      "variant": 2,
+      "module": "data_forwarder_01",
+      "context": "[Log error]\nmodule=data_forwarder_01\nline=ERROR [ConfigLoader] Cannot read /etc/collector/config.yml - EACCES, running as non-root",
+      "expected_error_types": [
+        "permission",
+        "config",
+        "access",
+        "file"
+      ]
+    },
+    {
+      "case_id": "log-035",
+      "name": "unhandled_exception v3 on data_forwarder_02",
+      "scenario_key": "unhandled_exception",
+      "variant": 2,
+      "module": "data_forwarder_02",
+      "context": "[Log error]\nmodule=data_forwarder_02\nline=FATAL [DataCollector] Collection thread died unexpectedly - stack trace unavailable",
+      "expected_error_types": [
+        "exception",
+        "fatal",
+        "thread",
+        "crash"
+      ]
+    },
+    {
+      "case_id": "log-036",
+      "name": "http_503 v3 on agent_sample_a",
+      "scenario_key": "http_503",
+      "variant": 2,
+      "module": "agent_sample_a",
+      "context": "[Log error]\nmodule=agent_sample_a\nline=ERROR [MetricForwarder] Collector endpoint responded 503 Service Unavailable, batch not delivered",
+      "expected_error_types": [
+        "http",
+        "unavailable",
+        "service",
+        "server"
+      ]
+    },
+    {
+      "case_id": "log-037",
+      "name": "jmx_failed v3 on agent_sample_b",
+      "scenario_key": "jmx_failed",
+      "variant": 2,
+      "module": "agent_sample_b",
+      "context": "[Log error]\nmodule=agent_sample_b\nline=ERROR [JVMMonitor] MBean server unreachable at 10.10.45.84:9427 - JMX metrics unavailable",
+      "expected_error_types": [
+        "jmx",
+        "connect",
+        "network",
+        "jvm"
+      ]
+    },
+    {
+      "case_id": "log-038",
+      "name": "malformed_log v3 on agent_sample_c",
+      "scenario_key": "malformed_log",
+      "variant": 2,
+      "module": "agent_sample_c",
+      "context": "[Log error]\nmodule=agent_sample_c\nline=ERROR [LogParser] Pattern mismatch on input line - dropped 11 entries this cycle",
+      "expected_error_types": [
+        "parse",
+        "malformed",
+        "format",
+        "log"
+      ]
+    },
+    {
+      "case_id": "log-039",
+      "name": "out_of_memory v3 on data_forwarder_01",
+      "scenario_key": "out_of_memory",
+      "variant": 2,
+      "module": "data_forwarder_01",
+      "context": "[Log error]\nmodule=data_forwarder_01\nline=ERROR [DataCollector] Allocation failed - heap exhausted, worker-7 aborting batch",
+      "expected_error_types": [
+        "memory",
+        "oom",
+        "outofmemory",
+        "heap"
+      ]
+    },
+    {
+      "case_id": "log-040",
+      "name": "ssl_expired v3 on data_forwarder_02",
+      "scenario_key": "ssl_expired",
+      "variant": 2,
+      "module": "data_forwarder_02",
+      "context": "[Log error]\nmodule=data_forwarder_02\nline=ERROR [HTTPClient] TLS negotiation with 10.10.4.58 rejected: server certificate no longer valid",
+      "expected_error_types": [
+        "ssl",
+        "certificate",
+        "tls",
+        "security"
+      ]
+    },
+    {
+      "case_id": "log-041",
+      "name": "process_hang v3 on agent_sample_a",
+      "scenario_key": "process_hang",
+      "variant": 2,
+      "module": "agent_sample_a",
+      "context": "[Log error]\nmodule=agent_sample_a\nline=ERROR [WatchDog] Liveness probe failed for process 54713 - no progress since last check",
+      "expected_error_types": [
+        "process",
+        "hang",
+        "restart",
+        "availability"
+      ]
+    },
+    {
+      "case_id": "log-042",
+      "name": "disk_write_failed v3 on agent_sample_b",
+      "scenario_key": "disk_write_failed",
+      "variant": 2,
+      "module": "agent_sample_b",
+      "context": "[Log error]\nmodule=agent_sample_b\nline=ERROR [DataBuffer] Write to /data/buffer/1.buf failed (EIO) - spooling to memory",
+      "expected_error_types": [
+        "disk",
+        "io",
+        "buffer",
+        "write",
+        "storage"
+      ]
+    }
+  ]
+}

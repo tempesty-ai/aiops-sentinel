@@ -6,6 +6,7 @@ Usage:
   py -3 main.py --eval
   py -3 main.py --eval --report
   py -3 main.py --eval --gate
+  py -3 main.py --eval --sample 20
 
 Exit codes: 0 pass, 2 quality gate failed, 3 config error, 4 gate inconclusive.
 """
@@ -117,14 +118,15 @@ def run_monitoring() -> int:
         return 0
 
 
-def run_eval(generate_report: bool = False, enforce_gate: bool = False) -> int:
+def run_eval(generate_report: bool = False, enforce_gate: bool = False,
+             sample: int = 0, sample_seed: int = 0) -> int:
     validate_required_settings(require_mattermost=False)
 
     print("=" * 60)
     print("AIOps Sentinel - Evaluation mode")
     print("=" * 60)
 
-    evaluator = AIQualityEvaluator()
+    evaluator = AIQualityEvaluator(sample_size=sample, sample_seed=sample_seed)
     report = evaluator.run_full_eval()
     eval_data = save_eval_report_json(report)
 
@@ -134,8 +136,11 @@ def run_eval(generate_report: bool = False, enforce_gate: bool = False) -> int:
 
     print("\n[Eval] Summary")
     print(f"  overall_score: {report.overall_score:.0%}")
+    evaluated = len(report.apm_results) + len(report.log_results)
     print(f"  dataset: {report.dataset_version} | prompt: {report.prompt_version}"
           f" | analysis: {report.analysis_model} | judge: {report.judge_model}")
+    print(f"  cases: {evaluated}/{report.cases_available}"
+          + (f" (sampled, seed {report.sample_seed})" if evaluated < report.cases_available else ""))
     if report.quality_gate:
         gate = report.quality_gate
         print(f"  quality_gate: {gate.status} ({gate.score:.0%} of checks certified)")
@@ -173,11 +178,24 @@ if __name__ == "__main__":
     parser.add_argument("--eval", action="store_true", help="Run AI evaluation suite")
     parser.add_argument("--report", action="store_true", help="Generate HTML report")
     parser.add_argument("--gate", action="store_true", help="Fail process when quality gate does not pass")
+    parser.add_argument(
+        "--sample",
+        type=int,
+        default=0,
+        help="Evaluate a stratified subset of N cases instead of the whole dataset (0 = all). "
+             "A full run costs about 4 LLM calls per case.",
+    )
+    parser.add_argument("--sample-seed", type=int, default=0, help="Seed for --sample, so a subset is reproducible")
     args = parser.parse_args()
 
     try:
         if args.eval:
-            raise_code = run_eval(generate_report=args.report, enforce_gate=args.gate)
+            raise_code = run_eval(
+                generate_report=args.report,
+                enforce_gate=args.gate,
+                sample=args.sample,
+                sample_seed=args.sample_seed,
+            )
         elif args.report:
             raise_code = run_report()
         else:

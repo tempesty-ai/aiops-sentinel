@@ -21,9 +21,18 @@ METRIC_ORDER = [
     "hallucination",
     "relevancy",
     "faithfulness",
+    "action_grounding",
 ]
 
-META_KEYS = ["dataset_version", "prompt_version", "analysis_model", "judge_model", "ollama_version"]
+META_KEYS = [
+    "dataset_version",
+    "prompt_version",
+    "analysis_model",
+    "analysis_digest",   # a tag can be re-pulled with different weights
+    "judge_model",
+    "judge_digest",
+    "ollama_version",
+]
 
 HISTORY_GLOB = os.path.join("reports", "history", "eval_result_*.json")
 

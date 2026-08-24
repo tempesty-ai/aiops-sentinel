@@ -119,6 +119,18 @@ def generate_html_report(
                 )
             return "".join(parts)
 
+        def grounding_block(r: dict) -> str:
+            score = r.get("action_grounding_score")
+            if score is None:
+                return ""
+            unsupported = r.get("action_grounding_unsupported") or []
+            cls = "jreason" if not unsupported else "jreason ungrounded"
+            return (
+                f'<div class="judge"><span class="jname">Action grounding</span>'
+                f'<span class="jscore">{score}</span>'
+                f'<span class="{cls}">{_escape(str(r.get("action_grounding_reason") or ""))}</span></div>'
+            )
+
         def answer_block(r: dict) -> str:
             excerpt = r.get("answer_excerpt")
             if not excerpt:
@@ -134,7 +146,7 @@ def generate_html_report(
                 f"<td>{'-' if r.get('classification_unmeasured') else ('Y' if r.get('fault_type_correct') else 'N')}</td>"
                 f"<td>{int(float(r.get('overall_score', 0.0)) * 100)}%</td>"
                 "</tr>"
-                f'<tr class="detail"><td colspan="4">{judge_block(r)}{answer_block(r)}</td></tr>'
+                f'<tr class="detail"><td colspan="4">{grounding_block(r)}{judge_block(r)}{answer_block(r)}</td></tr>'
             )
         if not apm_rows:
             apm_rows = '<tr><td colspan="4" class="muted">No APM eval rows</td></tr>'
@@ -152,6 +164,27 @@ def generate_html_report(
             )
         if not log_rows:
             log_rows = '<tr><td colspan="4" class="muted">No log eval rows</td></tr>'
+
+        scenario_rows = ""
+        for key, entry in (eval_data.get("by_scenario") or {}).items():
+            acc = entry.get("accuracy")
+            acc_text = "not measured" if acc is None else f"{int(acc * 100)}%"
+            variants = entry.get("by_variant") or {}
+            variant_text = ", ".join(
+                f"{name} {int(v['accuracy'] * 100)}%" if v.get("accuracy") is not None else f"{name} -"
+                for name, v in sorted(variants.items())
+            ) or "-"
+            weak = ' class="fail"' if acc is not None and acc < 0.7 else ""
+            scenario_rows += (
+                f"<tr{weak}>"
+                f"<td>{_escape(str(key))}</td>"
+                f"<td>{entry.get('cases', 0)}</td>"
+                f"<td>{acc_text}</td>"
+                f"<td>{_escape(variant_text)}</td>"
+                "</tr>"
+            )
+        if not scenario_rows:
+            scenario_rows = '<tr><td colspan="4" class="muted">No per-scenario data</td></tr>'
 
         eval_section = f"""
         <section>
@@ -172,8 +205,16 @@ def generate_html_report(
                 log_acc={_escape(metric_text('log_error_type_accuracy'))},
                 hallucination={_escape(metric_text('hallucination'))},
                 relevancy={_escape(metric_text('relevancy'))},
-                faithfulness={_escape(metric_text('faithfulness'))}
+                faithfulness={_escape(metric_text('faithfulness'))},
+                action_grounding={_escape(metric_text('action_grounding'))}
             </p>
+
+            <h3>By Scenario</h3>
+            <p class="muted">가장 약한 유형부터. 문구별 정확도가 갈리면 표현에 취약한 것입니다.</p>
+            <table>
+                <thead><tr><th>Scenario</th><th>Cases</th><th>Accuracy</th><th>By phrasing</th></tr></thead>
+                <tbody>{scenario_rows}</tbody>
+            </table>
 
             <h3>APM Eval</h3>
             <table>
@@ -207,11 +248,13 @@ def generate_html_report(
     .card.pass {{ border-color: #10b981; }}
     .card.fail {{ border-color: #ef4444; }}
     .card.warn {{ border-color: #f59e0b; }}
+    tr.fail td {{ color: #fca5a5; }}
     tr.detail td {{ background: #172033; border-top: none; padding: 8px 12px 12px; }}
     .judge {{ display: grid; grid-template-columns: 110px 52px 1fr; gap: 8px; align-items: start; padding: 3px 0; font-size: 12px; }}
     .jname {{ color: #93c5fd; }}
     .jscore {{ color: #e2e8f0; font-variant-numeric: tabular-nums; }}
     .jreason {{ color: #94a3b8; line-height: 1.5; }}
+    .jreason.ungrounded {{ color: #fca5a5; }}
     tr.detail details {{ margin-top: 6px; font-size: 12px; color: #94a3b8; }}
     tr.detail pre {{ white-space: pre-wrap; margin: 6px 0 0; padding: 8px; background: #0f172a; border-radius: 6px; overflow-x: auto; }}
     .value {{ font-size: 24px; font-weight: 700; }}

@@ -74,6 +74,30 @@ def validate_required_settings(require_mattermost: bool = False) -> None:
         )
 
 
+def get_model_digest(model: str, short: int = 16) -> str:
+    """
+    Content hash of a pulled Ollama model.
+
+    An Ollama tag is mutable: `ollama pull llama3.1:70b` can replace the weights
+    behind the same name. Recording only the tag would let two runs look
+    identically configured while the judge silently changed, which is exactly the
+    false attribution eval.compare_runs is meant to prevent.
+
+    Returns "unknown" when the server is unreachable or the tag is not pulled.
+    """
+    try:
+        import requests
+
+        resp = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=3)
+        resp.raise_for_status()
+        for entry in resp.json().get("models", []):
+            if model in (entry.get("name"), entry.get("model")):
+                return str(entry.get("digest", "unknown"))[:short]
+        return "unknown"
+    except Exception:
+        return "unknown"
+
+
 def get_ollama_version() -> str:
     """
     Best-effort Ollama server version, recorded in eval reports for reproducibility.

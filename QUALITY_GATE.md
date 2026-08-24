@@ -12,6 +12,39 @@ All metrics are measured during `--eval` and stored in `reports/eval_result.json
 4. `hallucination` >= `0.65` (higher is better because score is inverted)
 5. `relevancy` >= `0.60`
 6. `faithfulness` >= `0.60`
+7. `action_grounding` >= `0.80`
+
+## Action Grounding
+
+An LLM judge scores whether an answer *reads* correct, not whether it *is*
+correct. Code can be checked by running it; an operational recommendation can be
+checked against the metrics that were actually abnormal.
+
+The defect this exists for: for a snapshot with `cpu=92.5%` and
+`db_connections=12/50`, the model answered *"Increase database connections to
+75"*. The pool was at 24% and the detector never flagged it - yet
+`HallucinationMetric` scored the answer a perfect `1.0` and the case passed.
+
+`eval/action_grounding.py` extracts the resources an action proposes to change
+and requires each one to appear in `AnomalyResult.triggered_metrics`:
+
+```
+score = (targeted resources that were flagged) / (targeted resources)
+```
+
+Design choices:
+
+- **Measured against detection, not fresh thresholds.** The check reuses what the
+  detector already flagged, so it cannot drift away from detection logic.
+- **Remediation verbs only.** "CPU is high, so increase the DB pool" targets the
+  pool, not the CPU; a resource named without a remediation verb is context.
+- **`heap` and `memory` are interchangeable** - the same pressure from an
+  operator's point of view.
+- **No checkable resource means unmeasured, not 0.0.** "Collect a thread dump and
+  escalate" is a legitimate action that names no metric.
+- **Deterministic.** This is the half the LLM judge cannot be trusted with, so it
+  is plain rules, and it is an independent gate metric rather than an average
+  folded into `custom_score` where one bad action would be diluted away.
 
 ## Measured vs Unmeasured
 
@@ -22,6 +55,19 @@ model returned invalid JSON). Such a metric is reported as `null` and listed in
 Classification accuracy skips any case whose answer came from a parser/LLM
 fallback (`classification_unmeasured`), because a fallback is not evidence that
 the classification was right or wrong.
+
+## Threshold Resolution
+
+Thresholds are only meaningful if the metric can land near them. With the 5-case
+v1 dataset, `apm_fault_type_accuracy` could only take the values
+`0 / 0.33 / 0.67 / 1.0`, and its threshold `0.67` sat exactly on that grid - the
+rule was really "get 2 of 3 right", and a single case moved `overall_score` by
+20 points.
+
+`golden_v2.json` (60 APM / 42 log) puts the resolution at 1/60 for APM accuracy
+and under 1 point for `overall_score`, so the thresholds now separate degrees of
+quality instead of counting cases. The threshold values themselves are unchanged
+and remain judgement calls, not derived numbers.
 
 ## Sample Coverage
 
@@ -59,22 +105,93 @@ py -3 main.py --eval --gate
 
 ## Dataset
 
-Labels live in `eval/datasets/golden_v1.json`, separate from scoring code so they
-can be versioned and reviewed on their own. The dataset version is recorded in
-every report under `run_metadata.dataset_version`.
+Labels live in `eval/datasets/`, separate from scoring code so they can be
+versioned and reviewed on their own. The active file is `golden_v2.json`
+(102 cases: 60 APM + 42 log); override with `GOLDEN_DATASET`. The version is
+recorded in every report under `run_metadata.dataset_version`.
 
-Labeling rules:
+### Generated from the operational code path
 
+`golden_v2.json` is built by `eval/datasets/build_golden.py`, which drives the
+same code the runtime uses:
+
+```
+MockAPMGenerator(force_scenario) -> AnomalyDetector -> context_for_ai
+```
+
+Two consequences:
+
+- **Labels are correct by construction.** The injected fault scenario *is* the
+  ground truth, so 100+ cases need no hand labeling.
+- **The eval input has the same shape as the runtime input.** Previously the eval
+  used hand-written strings that never passed through the detector, so passing
+  the eval said nothing about the distribution the pipeline actually produces.
+
+APM samples the detector does not flag are dropped: the runtime only sends
+detected anomalies to the AI, so an unflagged sample is not a valid input.
+
+Rebuild (same seed reproduces the file byte for byte):
+
+```bash
+py -3 -m eval.datasets.build_golden --apm 60 --log 42 --seed 20260819
+```
+
+### Labeling rules
+
+- A label must be **inferable from the sample alone**. The injector knows it
+  produced a `memory_leak`, but one snapshot cannot separate a leak from
+  legitimate high usage, so those cases are labeled `memory`/`heap`, never `leak`.
 - Expected types are matched against the parsed classification field, which is
   what the operator actually sees in the alert - not against the whole response.
 - Parser fallback values such as `Unknown` are not valid labels.
 - Section names the system prompt already mandates (for example `action`) are not
   used as expected keywords, since `completeness_score` covers them.
+- Labels use word stems so morphological variants both match.
+
+### Phrasing variants
+
+Each log error class carries several real-world phrasings of the *same* fault
+(42 log cases, 42 distinct wordings). A classifier that only recognizes one
+template scores well on an aggregate while being brittle in practice, so the
+report breaks accuracy down per class and per phrasing:
+
+| Scenario | Cases | Accuracy | By phrasing |
+| --- | --- | --- | --- |
+| connection_refused | 3 | 67% | v1 100%, v2 100%, v3 0% |
+
+The 67% looks like ordinary noise. The breakdown shows it is not: one wording
+fails every time. `by_scenario` in the report JSON carries the same data, ordered
+weakest first.
+
+APM cases are not varied this way on purpose - their context is produced by
+`AnomalyDetector._build_ai_context`, so changing the wording would mean diverging
+from the operational format. Their variation comes from the metric values.
+
+### Sampling
+
+A full run costs about 4 LLM calls per case (~408 for 102 cases), which is hours
+against a large judge model. `--sample N` evaluates a stratified subset that keeps
+every scenario class represented:
+
+```bash
+py -3 main.py --eval --sample 20
+py -3 main.py --eval --sample 20 --sample-seed 7
+```
+
+Sampling is recorded as `cases_evaluated` / `cases_available` / `sample_seed` in
+the report, because a score over a subset is not a score over the dataset.
 
 ## Reproducibility
 
-Each report records `run_metadata`: dataset version, analysis model, judge model,
-whether the run was self-grading, and the Ollama server version. Every run is also
+Each report records `run_metadata`: dataset version, prompt version, analysis and
+judge models **with their content digests**, whether the run was self-grading, the
+Ollama server version, and how many cases were evaluated out of how many available.
+
+The digests matter because an Ollama tag is mutable: `ollama pull llama3.1:70b`
+can replace the weights behind the same name. Recording only the tag would let two
+runs look identically configured while the judge silently changed - the exact false
+attribution `compare_runs` exists to prevent. `compare_runs` treats a digest change
+as a changed variable and refuses to attribute deltas. Every run is also
 copied to `reports/history/eval_result_<timestamp>.json` so scores stay comparable
 over time.
 

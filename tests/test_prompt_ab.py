@@ -49,7 +49,8 @@ def test_history_filename_separates_prompt_versions(tmp_path):
 
 def _run(**meta):
     return {"run_metadata": {"dataset_version": "1.1.0", "prompt_version": "v1",
-                             "analysis_model": "m", "judge_model": "j",
+                             "analysis_model": "m", "analysis_digest": "d1",
+                             "judge_model": "j", "judge_digest": "d2",
                              "ollama_version": "0", **meta}}
 
 
@@ -64,3 +65,18 @@ def test_comparison_flags_confounded_runs():
 
 def test_comparison_reports_identical_configuration():
     assert changed_variables(_run(), _run()) == []
+
+
+def test_digest_change_is_flagged_as_a_changed_variable():
+    """A mutable tag must not hide a judge swap from the comparison."""
+    base = _run(judge_digest="aaaa1111")
+    new = _run(judge_digest="bbbb2222")
+    assert changed_variables(base, new) == ["judge_digest"]
+
+
+def test_prompt_ab_with_a_silently_repulled_judge_is_not_controlled():
+    base = _run(prompt_version="v1", judge_digest="aaaa1111")
+    new = _run(prompt_version="v2", judge_digest="bbbb2222")
+    varied = changed_variables(base, new)
+    assert set(varied) == {"prompt_version", "judge_digest"}
+    assert len(varied) > 1, "two variables changed, so no delta is attributable"
