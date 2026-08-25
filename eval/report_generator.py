@@ -100,7 +100,6 @@ def generate_html_report(
             """Per-metric judge score together with the reason the judge gave."""
             parts = []
             for name, score_key, reason_key in (
-                ("Hallucination", "hallucination_score", "hallucination_reason"),
                 ("Relevancy", "relevancy_score", "relevancy_reason"),
                 ("Faithfulness", "faithfulness_score", "faithfulness_reason"),
             ):
@@ -120,16 +119,23 @@ def generate_html_report(
             return "".join(parts)
 
         def grounding_block(r: dict) -> str:
-            score = r.get("action_grounding_score")
-            if score is None:
-                return ""
-            unsupported = r.get("action_grounding_unsupported") or []
-            cls = "jreason" if not unsupported else "jreason ungrounded"
-            return (
-                f'<div class="judge"><span class="jname">Action grounding</span>'
-                f'<span class="jscore">{score}</span>'
-                f'<span class="{cls}">{_escape(str(r.get("action_grounding_reason") or ""))}</span></div>'
-            )
+            rows = ""
+            for label, score_key, unsupported_key, reason_key in (
+                ("Cause grounding", "cause_grounding_score",
+                 "cause_grounding_unsupported", "cause_grounding_reason"),
+                ("Action grounding", "action_grounding_score",
+                 "action_grounding_unsupported", "action_grounding_reason"),
+            ):
+                score = r.get(score_key)
+                if score is None:
+                    continue
+                cls = "jreason ungrounded" if (r.get(unsupported_key) or []) else "jreason"
+                rows += (
+                    f'<div class="judge"><span class="jname">{label}</span>'
+                    f'<span class="jscore">{score}</span>'
+                    f'<span class="{cls}">{_escape(str(r.get(reason_key) or ""))}</span></div>'
+                )
+            return rows
 
         def answer_block(r: dict) -> str:
             excerpt = r.get("answer_excerpt")
@@ -203,9 +209,9 @@ def generate_html_report(
                 overall={_escape(metric_text('overall_score'))},
                 apm_acc={_escape(metric_text('apm_fault_type_accuracy'))},
                 log_acc={_escape(metric_text('log_error_type_accuracy'))},
-                hallucination={_escape(metric_text('hallucination'))},
                 relevancy={_escape(metric_text('relevancy'))},
                 faithfulness={_escape(metric_text('faithfulness'))},
+                cause_grounding={_escape(metric_text('cause_grounding'))},
                 action_grounding={_escape(metric_text('action_grounding'))}
             </p>
 

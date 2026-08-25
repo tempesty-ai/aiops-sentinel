@@ -18,9 +18,9 @@ METRIC_ORDER = [
     "overall_score",
     "apm_fault_type_accuracy",
     "log_error_type_accuracy",
-    "hallucination",
     "relevancy",
     "faithfulness",
+    "cause_grounding",
     "action_grounding",
 ]
 
@@ -31,6 +31,7 @@ META_KEYS = [
     "analysis_digest",   # a tag can be re-pulled with different weights
     "judge_model",
     "judge_digest",
+    "judge_mode",        # domain and deepeval scores are not evidence about each other
     "ollama_version",
 ]
 

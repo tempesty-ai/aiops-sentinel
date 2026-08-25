@@ -7,6 +7,7 @@ Usage:
   py -3 main.py --eval --report
   py -3 main.py --eval --gate
   py -3 main.py --eval --sample 20
+  py -3 main.py --eval --deep
 
 Exit codes: 0 pass, 2 quality gate failed, 3 config error, 4 gate inconclusive.
 """
@@ -22,7 +23,12 @@ from apm.ai_analyzer import APMAIAnalyzer
 from apm.anomaly_detector import AnomalyDetector
 from apm.mock_generator import MockAPMGenerator
 from config.settings import APM_CHECK_INTERVAL_SECONDS, validate_required_settings
-from eval.eval_suite import AIQualityEvaluator, save_eval_report_json
+from eval.eval_suite import (
+    JUDGE_MODE_DEEPEVAL,
+    JUDGE_MODE_DOMAIN,
+    AIQualityEvaluator,
+    save_eval_report_json,
+)
 from eval.report_generator import AlertRecord, generate_html_report
 from logwatch.ai_classifier import LogAIClassifier
 from logwatch.log_simulator import LogSimulator
@@ -119,14 +125,14 @@ def run_monitoring() -> int:
 
 
 def run_eval(generate_report: bool = False, enforce_gate: bool = False,
-             sample: int = 0, sample_seed: int = 0) -> int:
+             sample: int = 0, sample_seed: int = 0, judge_mode: str = JUDGE_MODE_DOMAIN) -> int:
     validate_required_settings(require_mattermost=False)
 
     print("=" * 60)
     print("AIOps Sentinel - Evaluation mode")
     print("=" * 60)
 
-    evaluator = AIQualityEvaluator(sample_size=sample, sample_seed=sample_seed)
+    evaluator = AIQualityEvaluator(sample_size=sample, sample_seed=sample_seed, judge_mode=judge_mode)
     report = evaluator.run_full_eval()
     eval_data = save_eval_report_json(report)
 
@@ -138,7 +144,7 @@ def run_eval(generate_report: bool = False, enforce_gate: bool = False,
     print(f"  overall_score: {report.overall_score:.0%}")
     evaluated = len(report.apm_results) + len(report.log_results)
     print(f"  dataset: {report.dataset_version} | prompt: {report.prompt_version}"
-          f" | analysis: {report.analysis_model} | judge: {report.judge_model}")
+          f" | analysis: {report.analysis_model} | judge: {report.judge_model} ({report.judge_mode})")
     print(f"  cases: {evaluated}/{report.cases_available}"
           + (f" (sampled, seed {report.sample_seed})" if evaluated < report.cases_available else ""))
     if report.quality_gate:
@@ -186,6 +192,12 @@ if __name__ == "__main__":
              "A full run costs about 4 LLM calls per case.",
     )
     parser.add_argument("--sample-seed", type=int, default=0, help="Seed for --sample, so a subset is reproducible")
+    parser.add_argument(
+        "--deep",
+        action="store_true",
+        help="Judge with the DeepEval metrics (~9 judge calls per case) instead of the "
+             "single-call domain judge. Far slower; use it to cross-check the fast mode.",
+    )
     args = parser.parse_args()
 
     try:
@@ -195,6 +207,7 @@ if __name__ == "__main__":
                 enforce_gate=args.gate,
                 sample=args.sample,
                 sample_seed=args.sample_seed,
+                judge_mode=JUDGE_MODE_DEEPEVAL if args.deep else JUDGE_MODE_DOMAIN,
             )
         elif args.report:
             raise_code = run_report()

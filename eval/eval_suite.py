@@ -5,6 +5,7 @@ Includes a quality gate with pass/fail criteria for portfolio-friendly QA eviden
 import json
 import os
 import random
+import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -13,9 +14,11 @@ from deepeval.metrics import AnswerRelevancyMetric, FaithfulnessMetric, Hallucin
 from deepeval.models.base_model import DeepEvalBaseLLM
 from deepeval.test_case import LLMTestCase
 from langchain_ollama import ChatOllama
+from pydantic import BaseModel
 
 from apm.ai_analyzer import APMAIAnalyzer
-from eval.action_grounding import check_action_grounding
+from eval.action_grounding import check_action_grounding, check_cause_grounding
+from eval.domain_judge import judge as domain_judge
 from config.settings import (
     APM_PROMPT_VERSION,
     EVAL_JUDGE_MODEL,
@@ -37,14 +40,37 @@ QUALITY_GATE_THRESHOLDS = {
     "overall_score_min": 0.70,
     "apm_fault_type_accuracy_min": 0.67,
     "log_error_type_accuracy_min": 0.50,
-    "hallucination_min": 0.65,
     "relevancy_min": 0.60,
     "faithfulness_min": 0.60,
     # An action may only target a resource the detector flagged. Judgement call,
     # set to allow occasional defensible over-reach but not systematic drift.
     "action_grounding_min": 0.80,
+    # The diagnosis is held to the same bar as the remedy.
+    "cause_grounding_min": 0.80,
 }
 
+
+# The judge scores relevancy against this question, so it has to describe the
+# task the model was actually given. Asking only for "root cause and action"
+# made AnswerRelevancy penalise the Prevention and Severity sections that the
+# system prompt requires - the better the model followed instructions, the lower
+# it scored.
+# deepeval: three library metrics, ~9 judge calls per case, ~280s on CPU.
+# domain:   the same three questions in one structured call, ~20s on CPU.
+# Recorded per run and treated as a changed variable by compare_runs, because a
+# score from one mode is not evidence about the other.
+JUDGE_MODE_DEEPEVAL = "deepeval"
+JUDGE_MODE_DOMAIN = "domain"
+
+APM_JUDGE_TASK = (
+    "As a senior APM incident analyst, analyse this anomaly and report all five "
+    "sections - Fault Type, Root Cause, Immediate Action, Prevention, Severity - "
+    "for:"
+)
+LOG_JUDGE_TASK = (
+    "Classify this collector log error and report all four sections - Error Type, "
+    "Severity, Recurrence, Recommended Action - for:"
+)
 
 class OllamaEvalModel(DeepEvalBaseLLM):
     """
@@ -63,11 +89,31 @@ class OllamaEvalModel(DeepEvalBaseLLM):
     def load_model(self):
         return self._llm
 
-    def generate(self, prompt: str) -> str:
-        return self._llm.invoke(prompt).content
+    def supports_structured_outputs(self) -> bool:
+        return True
 
-    async def a_generate(self, prompt: str) -> str:
-        return self.generate(prompt)
+    def generate(self, prompt: str, schema: type[BaseModel] | None = None):
+        """
+        DeepEval calls this with `schema` when a metric wants structured output.
+
+        Ollama can constrain decoding to a JSON schema, so the judge is made to
+        answer in shape rather than asked politely to. Without this the metrics
+        fell back to free-text parsing and every judge below 70b failed with
+        "Evaluation LLM outputted an invalid JSON".
+
+        Returning a schema instance lets DeepEval skip its own JSON parsing.
+        """
+        if schema is None:
+            return self._llm.invoke(prompt).content
+        try:
+            return self._llm.with_structured_output(schema).invoke(prompt)
+        except Exception:
+            # A model that cannot honour the constraint still gets a chance to
+            # answer; DeepEval will parse and report the failure as before.
+            return self._llm.invoke(prompt).content
+
+    async def a_generate(self, prompt: str, schema: type[BaseModel] | None = None):
+        return self.generate(prompt, schema)
 
     def get_model_name(self) -> str:
         return f"ollama/{self.model_name}"
@@ -161,6 +207,7 @@ class EvalReport:
     analysis_model: str = OLLAMA_MODEL
     judge_model: str = EVAL_JUDGE_MODEL
     prompt_version: str = APM_PROMPT_VERSION
+    judge_mode: str = JUDGE_MODE_DOMAIN
     ollama_version: str = ""
     analysis_digest: str = ""
     judge_digest: str = ""
@@ -236,13 +283,16 @@ def evaluate_quality_gate(report: EvalReport) -> QualityGateResult:
 
     samples = {
         "apm_fault_type_accuracy": [1.0 if r.get("fault_type_correct") else 0.0 for r in apm_scored],
-        # None means the action named no checkable resource -> not a sample.
+        # None means the text named no checkable resource -> not a sample.
+        "cause_grounding": [
+            r["cause_grounding_score"] for r in report.apm_results
+            if isinstance(r.get("cause_grounding_score"), (int, float))
+        ],
         "action_grounding": [
             r["action_grounding_score"] for r in report.apm_results
             if isinstance(r.get("action_grounding_score"), (int, float))
         ],
         "log_error_type_accuracy": [1.0 if r.get("error_type_correct") else 0.0 for r in log_scored],
-        "hallucination": judged("hallucination_score"),
         "relevancy": judged("relevancy_score"),
         "faithfulness": judged("faithfulness_score"),
     }
@@ -258,8 +308,8 @@ def evaluate_quality_gate(report: EvalReport) -> QualityGateResult:
         "overall_score": len(all_results),
         "apm_fault_type_accuracy": len(report.apm_results),
         "action_grounding": len(report.apm_results),
+        "cause_grounding": len(report.apm_results),
         "log_error_type_accuracy": len(report.log_results),
-        "hallucination": len(answered),
         "relevancy": len(answered),
         "faithfulness": len(answered),
     }
@@ -307,6 +357,70 @@ def evaluate_quality_gate(report: EvalReport) -> QualityGateResult:
     )
 
 
+# A metric line such as "  - DB 커넥션: 12/50 (24%)" is an independently
+# checkable fact; the section headers around it are not.
+_FACT_LINE = re.compile(r"^\s*-\s*(?P<body>\S.*\S)\s*$")
+
+
+# The context lists the breached thresholds first, then every metric. Everything
+# before this heading belongs to the "detected" block.
+_METRIC_SECTION = "전체 지표"
+
+ABNORMAL = "[ABNORMAL]"
+NORMAL = "[NORMAL]"
+
+
+def split_context_into_facts(context: str) -> list[str]:
+    """
+    Break an anomaly context into separately judgeable statements.
+
+    Falls back to the whole block when nothing line-like is found, so a caller
+    passing free text still gets a usable (if coarse) context.
+    """
+    facts = [
+        match.group("body")
+        for line in (context or "").splitlines()
+        if (match := _FACT_LINE.match(line))
+    ]
+    return facts or [context]
+
+
+def label_facts(context: str) -> list[str]:
+    """
+    Tag each metric with the detector's own verdict.
+
+    An 8B judge cannot reliably decide whether 94.1% clears an 80% threshold - it
+    read genuine breaches as "within normal range" and invented contradictions
+    from them. The detector already made that call, so the judge is handed the
+    label and only has to compare it against what the analysis claims. Same rule
+    as the action-grounding check: never re-derive a decision the detector owns.
+    """
+    facts = split_context_into_facts(context)
+    if not facts or facts == [context]:
+        return facts
+
+    in_metric_section = False
+    breached: list[str] = []
+    labelled: list[str] = []
+    for line in (context or "").splitlines():
+        if _METRIC_SECTION in line:
+            in_metric_section = True
+            continue
+        match = _FACT_LINE.match(line)
+        if not match:
+            continue
+        body = match.group("body")
+        if not in_metric_section:
+            breached.append(body)
+            labelled.append(f"{ABNORMAL} {body}")
+        else:
+            # A metric restated in the breach block is abnormal; the rest is not.
+            name = body.split(":")[0].split()[0]
+            is_breached = any(name and name in rule for rule in breached)
+            labelled.append(f"{ABNORMAL if is_breached else NORMAL} {body}")
+    return labelled or facts
+
+
 def _blend_scores(custom_score: float, deepeval: "DeepEvalMetrics") -> tuple[float | None, float]:
     """
     Combine the rule-based score with the judge score (50:50).
@@ -341,12 +455,13 @@ def _match_label(expected: list[str], parsed_field: str, raw_response: str) -> t
 
 
 class AIQualityEvaluator:
-    def __init__(self, sample_size: int = 0, sample_seed: int = 0):
+    def __init__(self, sample_size: int = 0, sample_seed: int = 0, judge_mode: str = JUDGE_MODE_DOMAIN):
         self.apm_analyzer = APMAIAnalyzer()
         self.log_classifier = LogAIClassifier()
         self._eval_model = OllamaEvalModel()
         self.sample_size = sample_size
         self.sample_seed = sample_seed
+        self.judge_mode = judge_mode
 
     def _cases(self, cases: list[dict]) -> list[dict]:
         """Apply the run's sampling, splitting the budget across both tracks."""
@@ -356,13 +471,33 @@ class AIQualityEvaluator:
         share = max(1, round(self.sample_size * len(cases) / total)) if total else 0
         return stratified_sample(cases, share, self.sample_seed)
 
+    def _judge(self, question: str, answer: str, context: str) -> DeepEvalMetrics:
+        """Route to the configured judge; both return the same three scores."""
+        if self.judge_mode == JUDGE_MODE_DOMAIN:
+            scores = domain_judge(self._eval_model, question, answer, label_facts(context))
+            return DeepEvalMetrics(
+                answer_relevancy=scores.answer_relevancy,
+                faithfulness=scores.faithfulness,
+                relevancy_reason=scores.relevancy_reason,
+                faithfulness_reason=scores.faithfulness_reason,
+                hallucination=-1.0,   # this axis is graded by cause_grounding
+                hallucination_reason=scores.judge_error,
+            )
+        return self._run_deepeval_metrics(question, answer, context)
+
     def _run_deepeval_metrics(self, question: str, answer: str, context: str) -> DeepEvalMetrics:
         metrics = DeepEvalMetrics()
+        facts = split_context_into_facts(context)
         test_case = LLMTestCase(
             input=question,
             actual_output=answer,
-            retrieval_context=[context],
-            context=[context],
+            # HallucinationMetric emits one verdict per context document, so a
+            # single blob can only ever score 0.0 or 1.0 - and it scored 1.0 on
+            # every case, including an answer that contradicted the metrics.
+            # Splitting the snapshot into separate facts gives the metric
+            # something to discriminate with, and names the fact that clashed.
+            retrieval_context=facts,
+            context=facts,
         )
 
         try:
@@ -420,12 +555,12 @@ class AIQualityEvaluator:
                 2,
             )
 
-            grounding = check_action_grounding(
-                analysis.immediate_action, scenario.get("triggered_metrics", [])
-            )
+            triggered = scenario.get("triggered_metrics", [])
+            grounding = check_action_grounding(analysis.immediate_action, triggered)
+            cause = check_cause_grounding(analysis.root_cause, triggered)
 
-            deepeval = self._run_deepeval_metrics(
-                question=f"Analyze root cause and action for:\n{scenario['context']}",
+            deepeval = self._judge(
+                question=f"{APM_JUDGE_TASK}\n{scenario['context']}",
                 answer=analysis.raw_response,
                 context=scenario["context"],
             )
@@ -446,6 +581,9 @@ class AIQualityEvaluator:
                     "llm_failed": analysis.llm_failed,
                     "keyword_score": keyword_score,
                     "completeness_score": completeness_score,
+                    "cause_grounding_score": cause.score,
+                    "cause_grounding_unsupported": cause.unsupported,
+                    "cause_grounding_reason": cause.reason,
                     "action_grounding_score": grounding.score,
                     "action_grounding_targeted": grounding.targeted,
                     "action_grounding_unsupported": grounding.unsupported,
@@ -478,8 +616,8 @@ class AIQualityEvaluator:
             classification_unmeasured = classification.llm_failed or classification.error_type_missing
             action_present = len(classification.recommended_action) > 10
 
-            deepeval = self._run_deepeval_metrics(
-                question=f"Classify error and action:\n{scenario['context']}",
+            deepeval = self._judge(
+                question=f"{LOG_JUDGE_TASK}\n{scenario['context']}",
                 answer=classification.raw_response,
                 context=scenario["context"],
             )
@@ -523,7 +661,8 @@ class AIQualityEvaluator:
         print("[EvalSuite] Starting full evaluation")
         total = len(APM_TEST_SCENARIOS) + len(LOG_TEST_SCENARIOS)
         planned = len(self._cases(APM_TEST_SCENARIOS)) + len(self._cases(LOG_TEST_SCENARIOS))
-        print(f"[EvalSuite] dataset={DATASET_VERSION} prompt={APM_PROMPT_VERSION} analysis={OLLAMA_MODEL} judge={EVAL_JUDGE_MODEL}")
+        print(f"[EvalSuite] dataset={DATASET_VERSION} prompt={APM_PROMPT_VERSION} "
+              f"analysis={OLLAMA_MODEL} judge={EVAL_JUDGE_MODEL} mode={self.judge_mode}")
         if planned < total:
             print(f"[EvalSuite] Sampling {planned}/{total} cases (seed {self.sample_seed}) - scores cover the sample only")
         else:
@@ -542,6 +681,7 @@ class AIQualityEvaluator:
         report.judge_digest = get_model_digest(report.judge_model)
         report.cases_available = total
         report.sample_seed = self.sample_seed
+        report.judge_mode = self.judge_mode
 
         failed_calls = sum(1 for r in report.apm_results + report.log_results if r.get("llm_failed"))
         if failed_calls:
@@ -569,6 +709,7 @@ def save_eval_report_json(report: EvalReport, output_path: str = "reports/eval_r
             "judge_model": report.judge_model,
             "analysis_digest": report.analysis_digest,
             "judge_digest": report.judge_digest,
+            "judge_mode": report.judge_mode,
             "prompt_version": report.prompt_version,
             "cases_evaluated": len(report.apm_results) + len(report.log_results),
             "cases_available": report.cases_available,

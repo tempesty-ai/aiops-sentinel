@@ -9,42 +9,114 @@ All metrics are measured during `--eval` and stored in `reports/eval_result.json
 1. `overall_score` >= `0.70`
 2. `apm_fault_type_accuracy` >= `0.67`
 3. `log_error_type_accuracy` >= `0.50`
-4. `hallucination` >= `0.65` (higher is better because score is inverted)
-5. `relevancy` >= `0.60`
-6. `faithfulness` >= `0.60`
-7. `action_grounding` >= `0.80`
+4. `cause_grounding` >= `0.80`
+5. `action_grounding` >= `0.80`
+6. `relevancy` >= `0.60`
+7. `faithfulness` >= `0.60`
 
-## Action Grounding
+Metrics 1-5 are computed by rules; 6 and 7 by an LLM judge. Which check owns which
+axis was decided by measurement, not preference - see *Who grades what*.
+
+## Grounding: cause and action
 
 An LLM judge scores whether an answer *reads* correct, not whether it *is*
-correct. Code can be checked by running it; an operational recommendation can be
-checked against the metrics that were actually abnormal.
+correct. Code can be checked by running it; an operational diagnosis or
+recommendation can be checked against the metrics that were actually abnormal.
 
-The defect this exists for: for a snapshot with `cpu=92.5%` and
-`db_connections=12/50`, the model answered *"Increase database connections to
-75"*. The pool was at 24% and the detector never flagged it - yet
-`HallucinationMetric` scored the answer a perfect `1.0` and the case passed.
+Two observed defects this exists for:
 
-`eval/action_grounding.py` extracts the resources an action proposes to change
-and requires each one to appear in `AnomalyResult.triggered_metrics`:
+| Snapshot | Model answered | Reality |
+| --- | --- | --- |
+| `cpu=92.5%`, `db_connections=12/50` | "Increase database connections to 75" | the pool was at 24% and never flagged |
+| `db_connections=47/50`, `cpu=32%` | "Scale up server resources (CPU, Memory)" | CPU and memory were both normal |
+
+`HallucinationMetric` scored the first a perfect `1.0`.
+
+`eval/action_grounding.py` extracts the resources the answer points at and
+requires each to appear in `AnomalyResult.triggered_metrics`:
 
 ```
-score = (targeted resources that were flagged) / (targeted resources)
+score = (pointed-at resources that were flagged) / (pointed-at resources)
 ```
 
-Design choices:
+The two axes are graded separately because the fixes differ - a wrong diagnosis
+is a reasoning problem, a wrong remedy is a recommendation problem, and an
+aggregate would hide which one happened:
+
+- `cause_grounding` reads the **Root Cause** section. Any resource named there is
+  being blamed, so no verb is required.
+- `action_grounding` reads the **Immediate Action** section and requires a
+  remediation verb. "CPU is high, so increase the DB pool" targets the pool.
+
+Other design choices:
 
 - **Measured against detection, not fresh thresholds.** The check reuses what the
   detector already flagged, so it cannot drift away from detection logic.
-- **Remediation verbs only.** "CPU is high, so increase the DB pool" targets the
-  pool, not the CPU; a resource named without a remediation verb is context.
 - **`heap` and `memory` are interchangeable** - the same pressure from an
   operator's point of view.
 - **No checkable resource means unmeasured, not 0.0.** "Collect a thread dump and
   escalate" is a legitimate action that names no metric.
-- **Deterministic.** This is the half the LLM judge cannot be trusted with, so it
-  is plain rules, and it is an independent gate metric rather than an average
-  folded into `custom_score` where one bad action would be diluted away.
+- **Deterministic**, and an independent gate metric rather than a component of
+  `custom_score` where one bad answer would be diluted away.
+
+## Who grades what
+
+`hallucination` used to be a gate metric. It is not any more, and the reason is
+measured rather than argued:
+
+| Grader | Result on the "contradicts the metrics" axis |
+| --- | --- |
+| DeepEval `HallucinationMetric`, 70B judge | `1.0` on all 5 cases, including a clear contradiction. No discrimination. |
+| Single-call 8B judge, metrics unlabelled | Read a 94.1% reading against an 80% threshold as "within normal range". |
+| Single-call 8B judge, metrics pre-labelled | Still wrong on 2 of 3 cases; flagged facts it then described as correct. |
+| Rules (`cause_grounding`) | Correct on every case tried, with the specific resource named. |
+
+So the axis moved to rules, and the LLM judge kept only what rules cannot express:
+
+- **Rules own** classification accuracy, keyword coverage, completeness, and both
+  grounding axes.
+- **The judge owns** `faithfulness` (are the claims evidenced) and `relevancy`
+  (does the answer address the task).
+
+An 8B judge on CPU is the practical ceiling here, so the split is drawn where that
+judge is actually reliable.
+
+## Judge modes
+
+```bash
+py -3 main.py --eval           # domain judge: 1 call per case  (~1.8h for 102 cases)
+py -3 main.py --eval --deep    # DeepEval:     9 calls per case (~8h for 102 cases)
+```
+
+DeepEval splits every metric into separate extract / verdict / reason round trips.
+That is a sound trade against a hosted model at ~0.3s per call; against a local 8B
+model on CPU at ~20s per call it is 918 calls and eight hours, which means the
+eval stops being run at all.
+
+The domain judge asks the two remaining questions in one structured call. Scores
+are still ratios of verdicts, counted in code from the lists the judge returns, so
+a number means the same thing in both modes.
+
+`judge_mode` is recorded in every report and treated as a changed variable by
+`compare_runs`, so a cross-mode delta is never attributed to the thing under test.
+
+## Structured output
+
+The judge adapter implements `generate(prompt, schema=...)`, which lets DeepEval
+hand it a schema and lets Ollama constrain decoding to it.
+
+Without this, DeepEval's `generate_with_schema` hit a `TypeError`, fell back to
+free-text parsing, and every judge below 70B failed with *"Evaluation LLM
+outputted an invalid JSON"* - the metrics were unmeasurable for a reason that had
+nothing to do with the models. With it, an 8B judge measures all of them.
+
+## Fact granularity
+
+`HallucinationMetric` emits one verdict per context document, so passing the whole
+snapshot as a single blob capped the score at `0.0` or `1.0`. The context is now
+split per metric line, and each line is tagged with the detector's own verdict
+(`[ABNORMAL]` / `[NORMAL]`) so the judge never has to compare a value against a
+threshold - it got that wrong in both directions.
 
 ## Measured vs Unmeasured
 

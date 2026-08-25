@@ -1,5 +1,5 @@
 """
-Action grounding check.
+Grounding checks.
 
 An LLM judge scores whether an answer *reads* correct, not whether it *is*
 correct. Code can be verified by running it; an operational recommendation can be
@@ -80,6 +80,58 @@ def find_targeted_resources(action_text: str) -> list[str]:
     return targeted
 
 
+def find_mentioned_resources(text: str) -> list[str]:
+    """
+    Resources named anywhere in the text, with no verb requirement.
+
+    Used for the Root Cause section, whose whole purpose is to name the cause -
+    so a resource appearing there is being blamed, no remediation verb needed.
+    """
+    low = (text or "").lower()
+    return [
+        resource
+        for resource, patterns in _RESOURCE_PATTERNS.items()
+        if any(pattern in low for pattern in patterns)
+    ]
+
+
+def _grade(targeted: list[str], triggered_metrics: list[str], noun: str) -> GroundingVerdict:
+    if not targeted:
+        return GroundingVerdict(score=None, reason=f"No resource-targeting {noun} to verify.")
+
+    flagged = set(triggered_metrics or [])
+    unsupported = [
+        resource for resource in targeted
+        if not (set(_EQUIVALENT.get(resource, (resource,))) & flagged)
+    ]
+    score = round((len(targeted) - len(unsupported)) / len(targeted), 2)
+    if unsupported:
+        reason = (
+            f"{noun.capitalize()} points at {', '.join(unsupported)} but the detector flagged "
+            f"{', '.join(sorted(flagged)) or 'nothing'}. Not supported by the metrics."
+        )
+    else:
+        reason = f"{noun.capitalize()} points at {', '.join(targeted)}, all flagged by the detector."
+    return GroundingVerdict(score=score, targeted=targeted, unsupported=unsupported, reason=reason)
+
+
+def check_cause_grounding(cause_text: str, triggered_metrics: list[str]) -> GroundingVerdict:
+    """
+    Whether the diagnosis blames metrics the detector actually flagged.
+
+    Separate from the action check because the two failures need different fixes:
+    a wrong diagnosis is a reasoning problem, a wrong remedy is a recommendation
+    problem, and an aggregate would hide which one occurred.
+
+    This axis used to be left to the LLM judge. It was not reliable there -
+    DeepEval's HallucinationMetric scored a perfect 1.0 on every case including a
+    clear contradiction, and a single-call 8B judge got it wrong on two cases out
+    of three, reporting metrics the detector had flagged as "within normal range".
+    The detector already owns that decision, so the check reads its verdict.
+    """
+    return _grade(find_mentioned_resources(cause_text), triggered_metrics, "diagnosis")
+
+
 def check_action_grounding(action_text: str, triggered_metrics: list[str]) -> GroundingVerdict:
     """
     Fraction of the action's targeted resources that the detector actually flagged.
@@ -88,22 +140,4 @@ def check_action_grounding(action_text: str, triggered_metrics: list[str]) -> Gr
     reported as unmeasured rather than scored 0.0 - an action can be legitimate
     without naming a metric (for example "collect a heap dump and escalate").
     """
-    targeted = find_targeted_resources(action_text)
-    if not targeted:
-        return GroundingVerdict(score=None, reason="No resource-targeting action to verify.")
-
-    flagged = set(triggered_metrics or [])
-    unsupported = [
-        resource for resource in targeted
-        if not (set(_EQUIVALENT.get(resource, (resource,))) & flagged)
-    ]
-
-    score = round((len(targeted) - len(unsupported)) / len(targeted), 2)
-    if unsupported:
-        reason = (
-            f"Action targets {', '.join(unsupported)} but the detector flagged "
-            f"{', '.join(sorted(flagged)) or 'nothing'}. Not supported by the metrics."
-        )
-    else:
-        reason = f"Action targets {', '.join(targeted)}, all flagged by the detector."
-    return GroundingVerdict(score=score, targeted=targeted, unsupported=unsupported, reason=reason)
+    return _grade(find_targeted_resources(action_text), triggered_metrics, "action")

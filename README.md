@@ -82,10 +82,15 @@
 
 | 평가 지표 | 검증 의도 |
 | --- | --- |
-| **Hallucination** | AI가 근거 없는 내용을 생성하지 않는 비율 |
-| **Answer Relevancy** | 장애 상황과 관련성 있는 답변 비율 |
-| **Faithfulness** | 실제 모니터링 데이터 기반으로 답변한 비율 |
-| **조치 정합성** (규칙 기반) | 조치가 지목한 리소스가 실제로 이상 감지된 항목인가 |
+| **Faithfulness** | 주장이 관측된 지표로 뒷받침되는 비율 (LLM 심판) |
+| **Answer Relevancy** | 요구된 과제에 답한 진술의 비율 (LLM 심판) |
+| **원인 정합성** (규칙) | 원인 진단이 지목한 리소스가 실제로 이상 감지된 항목인가 |
+| **조치 정합성** (규칙) | 조치가 지목한 리소스가 실제로 이상 감지된 항목인가 |
+
+> `Hallucination`은 게이트에서 제외했습니다. DeepEval 70b 심판에서 5건 전부 1.0으로 포화되어
+> 명백한 오답에도 만점을 줬고, 자체 8b 심판으로도 3건 중 2건을 오판했습니다. 같은 축을
+> **원인 정합성**이 규칙으로 정확히 잡습니다. 근거는 [QUALITY_GATE.md](QUALITY_GATE.md)의
+> *Who grades what* 참고.
 | 종합 품질 점수 | 커스텀 50% + DeepEval 50% 가중 평균 |
 
 → **"AI의 답을 운영에 쓸 수 있는가"** 를 점수로 게이트.
@@ -184,8 +189,11 @@ python main.py --report
 # 품질 게이트를 CI 종료 코드로 강제 (0 통과 / 2 미달 / 3 설정오류 / 4 측정불가)
 python main.py --eval --gate
 
-# 층화 샘플 20건만 평가 (전체 102건은 LLM 호출 약 408회)
+# 층화 샘플 20건만 평가 (개발 중 빠른 확인용. 보고하는 점수는 전수 실행)
 python main.py --eval --sample 20
+
+# DeepEval 3지표로 대조 (케이스당 심판 9회. 훨씬 느림)
+python main.py --eval --deep
 
 # 골든셋 재생성 (같은 seed면 동일 파일)
 python -m eval.datasets.build_golden --apm 60 --log 42
@@ -217,7 +225,8 @@ aiops-sentinel/
 ├── alert/
 │   └── mattermost.py        # Mattermost Webhook 알람
 ├── eval/
-│   ├── action_grounding.py  # 조치 정합성 검증 (LLM 심판이 놓치는 것을 규칙으로)
+│   ├── action_grounding.py  # 원인·조치 정합성 검증 (LLM 심판이 놓치는 것을 규칙으로)
+│   ├── domain_judge.py      # 심판 1회 호출 모드 (DeepEval 9회 대비 4.5배 빠름)
 │   ├── datasets/
 │   │   ├── build_golden.py  # 운영 코드 경로에서 골든셋 생성 (정답은 구성상 확정)
 │   │   ├── golden_v1.json   # v1 (5건, 손으로 작성)

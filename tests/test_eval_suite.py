@@ -47,9 +47,9 @@ def test_eval_smoke_with_mocks_and_regression_fixture():
             "keyword_score": 0.8,
             "completeness_score": 0.9,
             "custom_score": 0.85,
-            "hallucination_score": 0.9,
             "relevancy_score": 0.9,
             "faithfulness_score": 0.9,
+            "cause_grounding_score": 1.0,
             "action_grounding_score": 1.0,
             "overall_score": 0.85,
             "severity": "warning",
@@ -63,8 +63,7 @@ def test_eval_smoke_with_mocks_and_regression_fixture():
             "severity": "medium",
             "action_present": True,
             "custom_score": 0.8,
-            "hallucination_score": 0.9,
-            "relevancy_score": 0.8,
+            "relevancy_score": 0.9,
             "faithfulness_score": 0.8,
             "overall_score": 0.8,
         }
@@ -82,9 +81,9 @@ def test_missing_judge_scores_are_inconclusive_not_failed():
     """A judge outage must not be reported as a quality failure."""
     case = {
         "fault_type_correct": True,
-        "hallucination_score": 0.9,
         "relevancy_score": -1.0,      # judge returned invalid JSON
         "faithfulness_score": -1.0,   # judge returned invalid JSON
+        "cause_grounding_score": 1.0,
         "action_grounding_score": 1.0,
     }
     report = EvalReport(apm_results=[case], log_results=[dict(case, error_type_correct=True)], overall_score=0.9)
@@ -96,7 +95,9 @@ def test_missing_judge_scores_are_inconclusive_not_failed():
     assert "relevancy" not in gate.failed_rules
     assert set(gate.unmeasured_rules) == {"relevancy", "faithfulness"}
     assert gate.metrics["faithfulness"] is None
-    assert gate.sample_counts["hallucination"] == 2
+    # The deterministic axes stay measured even when the judge is down.
+    assert gate.sample_counts["cause_grounding"] == 1
+    assert gate.metrics["action_grounding"] == 1.0
 
 
 def test_unmeasurable_classification_is_not_counted_as_correct():
@@ -116,9 +117,9 @@ def test_all_metrics_measured_and_above_threshold_passes():
     case = {
         "fault_type_correct": True,
         "error_type_correct": True,
-        "hallucination_score": 0.9,
         "relevancy_score": 0.8,
         "faithfulness_score": 0.8,
+        "cause_grounding_score": 1.0,
         "action_grounding_score": 1.0,
     }
     report = EvalReport(apm_results=[case], log_results=[case], overall_score=0.85)
@@ -133,11 +134,11 @@ def test_all_metrics_measured_and_above_threshold_passes():
 def test_thin_sample_cannot_certify_a_pass():
     """One surviving judge call must not certify a metric as passing."""
     cases = [
-        {"fault_type_correct": True, "hallucination_score": 0.9, "relevancy_score": 0.9},
-        {"fault_type_correct": True, "hallucination_score": 0.9, "relevancy_score": -1.0},
-        {"fault_type_correct": True, "hallucination_score": 0.9, "relevancy_score": -1.0},
-        {"fault_type_correct": True, "hallucination_score": 0.9, "relevancy_score": -1.0},
-        {"fault_type_correct": True, "hallucination_score": 0.9, "relevancy_score": -1.0},
+        {"fault_type_correct": True, "faithfulness_score": 0.9, "relevancy_score": 0.9},
+        {"fault_type_correct": True, "faithfulness_score": 0.9, "relevancy_score": -1.0},
+        {"fault_type_correct": True, "faithfulness_score": 0.9, "relevancy_score": -1.0},
+        {"fault_type_correct": True, "faithfulness_score": 0.9, "relevancy_score": -1.0},
+        {"fault_type_correct": True, "faithfulness_score": 0.9, "relevancy_score": -1.0},
     ]
     report = EvalReport(apm_results=cases, log_results=[], overall_score=0.9)
     gate = evaluate_quality_gate(report)
@@ -149,36 +150,36 @@ def test_thin_sample_cannot_certify_a_pass():
     assert "relevancy" not in gate.failed_rules
     assert gate.status == "INCONCLUSIVE"
 
-    # hallucination covers every case, so it still certifies
-    assert gate.coverage["hallucination"] == 1.0
-    assert "hallucination" not in gate.insufficient_sample_rules
+    # faithfulness covers every case, so it still certifies
+    assert gate.coverage["faithfulness"] == 1.0
+    assert "faithfulness" not in gate.insufficient_sample_rules
 
 
 def test_below_threshold_still_fails_even_on_thin_sample():
     """Thin data is not an excuse to downgrade a real below-threshold reading."""
     cases = [
-        {"fault_type_correct": True, "hallucination_score": 0.1},
-        {"fault_type_correct": True, "hallucination_score": -1.0},
-        {"fault_type_correct": True, "hallucination_score": -1.0},
+        {"fault_type_correct": True, "faithfulness_score": 0.1},
+        {"fault_type_correct": True, "faithfulness_score": -1.0},
+        {"fault_type_correct": True, "faithfulness_score": -1.0},
     ]
     report = EvalReport(apm_results=cases, log_results=[], overall_score=0.9)
     gate = evaluate_quality_gate(report)
 
-    assert "hallucination" in gate.failed_rules
-    assert "hallucination" not in gate.insufficient_sample_rules
+    assert "faithfulness" in gate.failed_rules
+    assert "faithfulness" not in gate.insufficient_sample_rules
     assert gate.status == "FAIL"
 
 
 def test_fallback_answers_are_excluded_from_judge_metrics():
     """Judging fallback boilerplate measures nothing about the model."""
     cases = [
-        {"fault_type_correct": True, "hallucination_score": 0.9},
-        {"fault_type_correct": False, "llm_failed": True, "classification_unmeasured": True, "hallucination_score": 0.9},
+        {"fault_type_correct": True, "faithfulness_score": 0.9},
+        {"fault_type_correct": False, "llm_failed": True, "classification_unmeasured": True, "faithfulness_score": 0.9},
     ]
     report = EvalReport(apm_results=cases, log_results=[], overall_score=0.9)
     gate = evaluate_quality_gate(report)
 
-    assert gate.sample_counts["hallucination"] == 1
+    assert gate.sample_counts["faithfulness"] == 1
     assert gate.sample_counts["apm_fault_type_accuracy"] == 1
 
 
@@ -187,9 +188,9 @@ def test_ungrounded_action_fails_the_gate_even_when_the_judge_is_happy():
     cases = [
         {
             "fault_type_correct": True,
-            "hallucination_score": 1.0,   # judge saw no problem
-            "relevancy_score": 1.0,
+            "relevancy_score": 1.0,       # judge saw no problem
             "faithfulness_score": 1.0,
+            "cause_grounding_score": 1.0,
             "action_grounding_score": 0.0,
             "action_grounding_unsupported": ["db_connection"],
         }
@@ -201,16 +202,16 @@ def test_ungrounded_action_fails_the_gate_even_when_the_judge_is_happy():
     assert "action_grounding" in gate.failed_rules
     assert gate.status == "FAIL"
     # The judge metrics are untouched: this is an independent check, not a re-score.
-    assert "hallucination" not in gate.failed_rules
+    assert "faithfulness" not in gate.failed_rules
 
 
 def test_action_without_a_checkable_resource_is_unmeasured_not_zero():
     cases = [
         {
             "fault_type_correct": True,
-            "hallucination_score": 0.9,
             "relevancy_score": 0.9,
             "faithfulness_score": 0.9,
+            "cause_grounding_score": 1.0,
             "action_grounding_score": None,   # "collect a thread dump and escalate"
         }
     ] * 3
@@ -221,4 +222,36 @@ def test_action_without_a_checkable_resource_is_unmeasured_not_zero():
     assert gate.sample_counts["action_grounding"] == 0
     assert "action_grounding" in gate.unmeasured_rules
     assert "action_grounding" not in gate.failed_rules
+
+
+def test_a_wrong_diagnosis_fails_independently_of_the_remedy():
+    """
+    Blaming a metric the detector never flagged is a reasoning failure. Keeping it
+    apart from action_grounding is the point: the two need different fixes.
+    """
+    cases = [
+        {
+            "fault_type_correct": True,
+            "relevancy_score": 1.0,
+            "faithfulness_score": 1.0,
+            "cause_grounding_score": 0.0,
+            "cause_grounding_unsupported": ["db_connection"],
+            "action_grounding_score": 1.0,
+        }
+    ] * 3
+    gate = evaluate_quality_gate(EvalReport(apm_results=cases, log_results=[], overall_score=0.9))
+
+    assert "cause_grounding" in gate.failed_rules
+    assert "action_grounding" not in gate.failed_rules
+    assert gate.status == "FAIL"
+
+
+def test_hallucination_is_no_longer_a_gate_metric():
+    """It was saturated under DeepEval and misjudged by an 8B judge; the axis
+    is now graded deterministically by cause_grounding."""
+    from eval.eval_suite import QUALITY_GATE_THRESHOLDS
+
+    assert "hallucination_min" not in QUALITY_GATE_THRESHOLDS
+    gate = evaluate_quality_gate(EvalReport(apm_results=[], log_results=[], overall_score=0.8))
+    assert "hallucination" not in gate.metrics
 
