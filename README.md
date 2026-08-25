@@ -66,42 +66,96 @@
 - **APM 트랙**: Mock APM 데이터 → 임계값 기반 이상 감지 → LangChain + Ollama(`llama3.1:8b`)로 원인 분석 → Mattermost Webhook 알람
 - **로그 트랙**: 수집 에이전트 로그 → `tail -f` 다중 파일 → ERROR 키워드 감지 → AI 분류 → Mattermost 알람
 
-### 트랙 2: AI 출력 품질 평가 (DeepEval Suite)
+### 트랙 2: AI 출력 품질 평가
 
-이 저장소의 핵심 차별점. 50:50 가중 평균으로 AI 분석 품질을 정량화합니다.
+이 저장소의 핵심 차별점. **"AI의 답을 운영에 쓸 수 있는가"** 를 두 경로로 판정합니다.
 
-**커스텀 메트릭 (50%)**
+#### 경로 A — 케이스 점수 (50:50)
 
-| 평가 지표 | 검증 의도 |
+케이스 1건의 점수는 규칙 채점과 심판 채점을 반반으로 합칩니다.
+
+```
+케이스 점수 = 규칙 채점 × 0.5  +  심판 채점 × 0.5
+```
+
+| 규칙 채점 (LLM 불필요) | 검증 의도 |
 | --- | --- |
-| 장애유형 분류 정확도 | 예상 장애유형과 일치 여부 |
-| 키워드 포함율 | 분석에 필수 키워드 포함 여부 |
-| 응답 완결성 | **원인 / 조치 / 예방** 3요소 포함 여부 |
+| 장애유형 분류 정확도 | 골든셋 정답 레이블과 일치하는가 |
+| 키워드 포함율 | 필수 키워드가 응답에 있는가 |
+| 응답 완결성 | 원인·조치·예방 섹션이 채워졌는가 (길이 기준) |
 
-**DeepEval 메트릭 (50%)**
-
-| 평가 지표 | 검증 의도 |
+| 심판 채점 (LLM 심판) | 검증 의도 |
 | --- | --- |
-| **Faithfulness** | 주장이 관측된 지표로 뒷받침되는 비율 (LLM 심판) |
-| **Answer Relevancy** | 요구된 과제에 답한 진술의 비율 (LLM 심판) |
-| **원인 정합성** (규칙) | 원인 진단이 지목한 리소스가 실제로 이상 감지된 항목인가 |
-| **조치 정합성** (규칙) | 조치가 지목한 리소스가 실제로 이상 감지된 항목인가 |
+| **Faithfulness** | 주장이 관측된 지표로 뒷받침되는 비율 |
+| **Answer Relevancy** | 요구된 과제에 답한 진술의 비율 |
 
-리포트에는 **환각률(hallucination rate)** 이 함께 출력됩니다 — 게이트 지표는 아니고,
-위 두 규칙 지표에서 파생한 집계입니다.
+> **왜 반반인가**: 두 채점이 잡는 결함이 다릅니다. 규칙은 재현성 100%지만 단어와 구조만 보고,
+> 심판은 의미적 오류를 보지만 심판 모델이 실패하면 무방비입니다. 어느 쪽이 더 중요한지 검증할
+> 데이터가 없어 균등 배분했고, 100:0부터 0:100까지 바꿔 계산해도 판정 결론이 불변임을
+> 확인했습니다.
+
+#### 경로 B — 품질 게이트 (7개 지표, AND 조건)
+
+게이트는 경로 A의 점수를 그대로 쓰지 않습니다. 지표 7개를 **각각 자기 임계값과 개별 비교**하고,
+하나라도 미달하면 전체 FAIL입니다.
+
+| 지표 | 채점 방식 | 임계값 |
+| --- | --- | --- |
+| `overall_score` | 케이스 점수 평균 | 0.70 |
+| `apm_fault_type_accuracy` | 규칙 | 0.67 |
+| `log_error_type_accuracy` | 규칙 | 0.50 |
+| `cause_grounding` | 규칙 — 원인 진단이 **실제로 이상 감지된 항목**을 지목했는가 | 0.80 |
+| `action_grounding` | 규칙 — 조치가 **실제로 이상 감지된 항목**을 지목했는가 | 0.80 |
+| `relevancy` | LLM 심판 | 0.60 |
+| `faithfulness` | LLM 심판 | 0.60 |
+
+판정은 3분류입니다 — `PASS` / `FAIL`(측정값이 기준 미달) / `INCONCLUSIVE`(측정 불가 또는 표본 부족).
+**측정하지 못한 것을 품질 실패로 집계하지 않습니다.**
+
+#### 환각 측정
+
+`cause_grounding`이 잡는 것이 이 프로젝트가 겨냥한 환각입니다. 실제 검거 사례:
+
+```
+관측  cpu=92.5%,  db_connections=12/50   (DB는 감지 안 됨)
+답변  "Insufficient database connections" → 커넥션을 75로 늘려라
+      → cause_grounding 0.5,  action_grounding 0.5
+      → DeepEval HallucinationMetric은 이 답변에 1.0 만점을 줬음
+```
+
+리포트에는 **환각률**이 함께 출력됩니다. 게이트 지표는 아니고 위 두 규칙 지표에서 파생한 집계입니다.
 
 ```
 Hallucination rate: 33% - 20 of 60 cases asserted something the metrics
 do not support (diagnosis 14, action 11). Most often: cpu x18, memory x9
 ```
 
-> `Hallucination` 지표 자체는 게이트에서 제외했습니다. DeepEval 70b 심판에서 5건 전부 1.0으로 포화되어
-> 명백한 오답에도 만점을 줬고, 자체 8b 심판으로도 3건 중 2건을 오판했습니다. 같은 축을
-> **원인 정합성**이 규칙으로 정확히 잡습니다. 근거는 [QUALITY_GATE.md](QUALITY_GATE.md)의
-> *Who grades what* 참고.
-| 종합 품질 점수 | 커스텀 50% + DeepEval 50% 가중 평균 |
+> `Hallucination` 지표 자체는 게이트에서 제외했습니다. DeepEval 70b 심판에서 5건 전부 1.0으로
+> 포화되어 명백한 오답에도 만점을 줬고, 자체 8b 심판으로도 3건 중 2건을 오판했습니다.
+> 어느 채점기가 어느 축을 맡을지는 취향이 아니라 실측으로 정했습니다 —
+> [QUALITY_GATE.md](QUALITY_GATE.md)의 *Who grades what* 참고.
 
-→ **"AI의 답을 운영에 쓸 수 있는가"** 를 점수로 게이트.
+#### 평가 데이터셋
+
+```
+eval/datasets/golden_v2.json     102건 (APM 60 + 로그 42), 버전 2.2.0
+```
+
+`build_golden.py`가 **운영 코드 경로 그대로** 생성합니다 — `MockAPMGenerator(시나리오 강제)` →
+`AnomalyDetector` → `context_for_ai`. 주입한 장애 시나리오가 정답이므로 **정답이 구성상 확정**되고,
+평가 입력과 운영 입력의 형식이 동일합니다. 같은 seed면 바이트 단위로 재생성됩니다.
+
+#### 심판 모드
+
+```bash
+python main.py --eval           # 자체 심판: 케이스당 1회 호출  (기본)
+python main.py --eval --deep    # DeepEval:  케이스당 9회 호출  (대조용, 훨씬 느림)
+```
+
+DeepEval은 지표마다 추출·판정·근거를 따로 호출합니다. 호스팅 API에는 합리적이지만 로컬 CPU에서는
+102건에 918회 호출이라 실행 자체를 안 하게 됩니다. 자체 심판은 같은 질문을 구조화 출력 1회로
+합쳐 **4.5배 빠릅니다**. `judge_mode`가 리포트에 기록되고 `compare_runs`가 이를 변수로 취급하므로,
+두 모드 결과를 회귀로 착각하지 않습니다.
 
 ---
 
@@ -156,7 +210,8 @@ ERROR [DataCollector] Connection refused to target host
 | 언어 | Python 3.11+ |
 | AI/LLM | LangChain + Ollama (llama3.1:8b) |
 | 알람 | Mattermost Incoming Webhook |
-| 품질 평가 | **DeepEval (Agentic AI Eval Framework)** |
+| 품질 평가 | 자체 도메인 심판 (기본) + **DeepEval** (`--deep` 대조 모드) |
+| 검증 자동화 | pytest — 게이트·데이터셋·정합성 로직 회귀 테스트 |
 | 데이터 | Mock APM (InterMax 구조 기반) |
 
 ---
