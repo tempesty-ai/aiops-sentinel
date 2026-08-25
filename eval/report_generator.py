@@ -171,6 +171,19 @@ def generate_html_report(
         if not log_rows:
             log_rows = '<tr><td colspan="4" class="muted">No log eval rows</td></tr>'
 
+        halluc = eval_data.get("hallucination") or {}
+        if halluc.get("rate") is None:
+            halluc_line = "not measured"
+        else:
+            axis = halluc.get("by_axis", {})
+            common = ", ".join(f"{k} x{v}" for k, v in (halluc.get("most_common_unsupported") or {}).items())
+            halluc_line = (
+                f"{halluc['rate']:.0%} - {halluc['cases_with_hallucination']} of "
+                f"{halluc['cases_measurable']} cases asserted something the metrics do not support "
+                f"(diagnosis {axis.get('cause', 0)}, action {axis.get('action', 0)})"
+                + (f". Most often: {common}" if common else "")
+            )
+
         scenario_rows = ""
         for key, entry in (eval_data.get("by_scenario") or {}).items():
             acc = entry.get("accuracy")
@@ -201,6 +214,8 @@ def generate_html_report(
             </div>
             <p class="muted">schema_version: {schema_version}</p>
             <p class="muted">{_escape(meta_text)}</p>
+            <p><strong>Hallucination rate:</strong> {_escape(halluc_line)}</p>
+            <p class="muted">derived from cause/action grounding - reported, not gated</p>
             <p><strong>Failed Rules:</strong> {_escape(failed_text)}</p>
             <p><strong>Unmeasured:</strong> {_escape(unmeasured_text)}</p>
             <p><strong>Thin sample:</strong> {_escape(thin_text)}</p>

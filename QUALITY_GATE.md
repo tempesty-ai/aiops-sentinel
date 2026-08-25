@@ -81,6 +81,28 @@ So the axis moved to rules, and the LLM judge kept only what rules cannot expres
 An 8B judge on CPU is the practical ceiling here, so the split is drawn where that
 judge is actually reliable.
 
+## Hallucination rate (reported, not gated)
+
+The gate has no `hallucination` metric, but the report carries a hallucination
+figure so the concept stays readable:
+
+```
+Hallucination rate: 33% - 20 of 60 cases asserted something the metrics do not
+support (diagnosis 14, action 11). Most often: cpu x18, memory x9
+```
+
+It is **derived** from `cause_grounding` and `action_grounding` - the two places
+this project can detect a hallucination deterministically - and deliberately not
+gated, because the gate already holds both axes to `0.80` and gating the roll-up
+would count the same evidence twice.
+
+Reported as a *rate* so the direction is unambiguous: `0.0` means nothing
+unsupported. The removed metric was inverted, read backwards from its own name,
+and scored `1.0` on an answer that contradicted the data outright.
+
+A case whose answer names no checkable resource is left out of the denominator -
+saying nothing specific is not evidence of honesty.
+
 ## Judge modes
 
 ```bash

@@ -224,6 +224,60 @@ def _avg(values: list[float]) -> float | None:
     return round(sum(values) / len(values), 2) if values else None
 
 
+def summarize_hallucination(report: "EvalReport") -> dict:
+    """
+    How often the analysis asserted something the metrics do not support.
+
+    Derived, not measured: it is a roll-up of `cause_grounding` and
+    `action_grounding`, which are the two places this project can detect a
+    hallucination deterministically. It is reported rather than gated, so the same
+    evidence is never counted twice - the gate already holds both axes to 0.80.
+
+    Reported as a rate (0.0 = nothing unsupported) so the direction is obvious.
+    The old inverted `hallucination` metric read backwards from its own name and
+    scored 1.0 on a case that contradicted the data outright.
+    """
+    axes = (("cause", "cause_grounding_score", "cause_grounding_unsupported"),
+            ("action", "action_grounding_score", "action_grounding_unsupported"))
+
+    measurable = 0
+    hallucinated: list[dict] = []
+    by_axis = {"cause": 0, "action": 0}
+    resource_counts: dict[str, int] = {}
+
+    for result in report.apm_results:
+        scores = [result.get(key) for _, key, _ in axes]
+        if not any(isinstance(score, (int, float)) for score in scores):
+            continue
+        measurable += 1
+
+        unsupported: dict[str, list[str]] = {}
+        for axis, score_key, unsupported_key in axes:
+            if not isinstance(result.get(score_key), (int, float)):
+                continue
+            resources = result.get(unsupported_key) or []
+            if resources:
+                by_axis[axis] += 1
+                unsupported[axis] = list(resources)
+                for resource in resources:
+                    resource_counts[resource] = resource_counts.get(resource, 0) + 1
+
+        if unsupported:
+            hallucinated.append({"case_id": result.get("case_id"), "unsupported": unsupported})
+
+    rate = round(len(hallucinated) / measurable, 3) if measurable else None
+    return {
+        "derived_from": ["cause_grounding", "action_grounding"],
+        "gated": False,
+        "rate": rate,
+        "cases_with_hallucination": len(hallucinated),
+        "cases_measurable": measurable,
+        "by_axis": by_axis,
+        "most_common_unsupported": dict(sorted(resource_counts.items(), key=lambda kv: -kv[1])),
+        "examples": hallucinated[:10],
+    }
+
+
 def summarize_by_scenario(report: "EvalReport") -> dict:
     """
     Accuracy per fault class, and per phrasing within a class.
@@ -691,6 +745,12 @@ class AIQualityEvaluator:
         print(f"[EvalSuite] Quality gate: {report.quality_gate.status}")
         if report.quality_gate.unmeasured_rules:
             print(f"[EvalSuite] Unmeasured metrics: {', '.join(report.quality_gate.unmeasured_rules)}")
+        halluc = summarize_hallucination(report)
+        if halluc["rate"] is not None:
+            print(f"[EvalSuite] Hallucination rate: {halluc['rate']:.0%} "
+                  f"({halluc['cases_with_hallucination']}/{halluc['cases_measurable']} cases) "
+                  f"- derived from cause/action grounding, not gated")
+
         if report.quality_gate.insufficient_sample_rules:
             print(f"[EvalSuite] Thin-sample metrics: {', '.join(report.quality_gate.insufficient_sample_rules)}")
         return report
@@ -720,6 +780,7 @@ def save_eval_report_json(report: EvalReport, output_path: str = "reports/eval_r
         "overall_score": report.overall_score,
         "quality_gate": asdict(report.quality_gate) if report.quality_gate else None,
         "by_scenario": summarize_by_scenario(report),
+        "hallucination": summarize_hallucination(report),
         "apm_eval": report.apm_results,
         "log_eval": report.log_results,
     }
