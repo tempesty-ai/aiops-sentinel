@@ -11,24 +11,30 @@ from datetime import datetime
 
 from config.settings import OLLAMA_MODEL
 
+# Display labels. The JSON keeps the English keys as identifiers.
 METRIC_LABELS = {
-    "overall_score": "Overall score",
-    "apm_fault_type_accuracy": "APM fault-type accuracy",
-    "log_error_type_accuracy": "Log error-type accuracy",
-    "cause_grounding": "Cause grounding",
-    "action_grounding": "Action grounding",
-    "relevancy": "Relevancy",
-    "faithfulness": "Faithfulness",
+    "overall_score": "종합 점수",
+    "apm_fault_type_accuracy": "APM 장애유형 정확도",
+    "log_error_type_accuracy": "로그 에러유형 정확도",
+    "cause_grounding": "원인 정합성",
+    "action_grounding": "조치 정합성",
+    "relevancy": "과제 정합성 (심판)",
+    "faithfulness": "근거 충실성 (심판)",
 }
 
+VERDICT_OK = "충족"
+VERDICT_BELOW = "임계값 미달"
+VERDICT_UNMEASURED = "측정 불가"
+VERDICT_THIN = "표본 부족"
+
 JUDGE_AXES = (
-    ("Relevancy", "relevancy_score", "relevancy_reason"),
-    ("Faithfulness", "faithfulness_score", "faithfulness_reason"),
+    ("과제 정합성", "relevancy_score", "relevancy_reason"),
+    ("근거 충실성", "faithfulness_score", "faithfulness_reason"),
 )
 
 GROUNDING_AXES = (
-    ("Cause grounding", "cause_grounding_score", "cause_grounding_unsupported", "cause_grounding_reason"),
-    ("Action grounding", "action_grounding_score", "action_grounding_unsupported", "action_grounding_reason"),
+    ("원인 정합성", "cause_grounding_score", "cause_grounding_unsupported", "cause_grounding_reason"),
+    ("조치 정합성", "action_grounding_score", "action_grounding_unsupported", "action_grounding_reason"),
 )
 
 
@@ -61,6 +67,11 @@ def _pct(value, digits: int = 0) -> str:
     return "-" if value is None else f"{value * 100:.{digits}f}%"
 
 
+def _metric_names(keys) -> str:
+    """Show rule names the way the metric table shows them."""
+    return ", ".join(METRIC_LABELS.get(key, key) for key in (keys or [])) or "-"
+
+
 def _card(value: str, label: str, cls: str = "") -> str:
     return f'<div class="card {cls}"><div class="value">{value}</div><div class="label">{_escape(label)}</div></div>'
 
@@ -86,17 +97,17 @@ def _alert_section(records: list[AlertRecord]) -> str:
     apm = sum(1 for r in records if r.alert_type == "APM")
     return f"""
         <section>
-            <h2>Alerts</h2>
+            <h2>알람</h2>
             <div class="cards">
-                {_card(str(len(records)), "Total")}
-                {_card(str(critical), "Critical", "fail" if critical else "")}
+                {_card(str(len(records)), "전체")}
+                {_card(str(critical), "심각", "fail" if critical else "")}
                 {_card(str(apm), "APM")}
-                {_card(str(len(records) - apm), "Log")}
+                {_card(str(len(records) - apm), "로그")}
             </div>
             <div class="scroll">
             <table>
-                <thead><tr><th>Time</th><th>Type</th><th>Source</th><th>Severity</th>
-                <th>Fault</th><th>Root cause</th><th>Action</th></tr></thead>
+                <thead><tr><th>시각</th><th>구분</th><th>대상</th><th>심각도</th>
+                <th>장애유형</th><th>원인</th><th>조치</th></tr></thead>
                 <tbody>{rows}</tbody>
             </table>
             </div>
@@ -117,13 +128,13 @@ def _metric_rows(gate: dict) -> str:
     for name, value in metrics.items():
         threshold = thresholds.get(f"{name}_min")
         if name in unmeasured:
-            verdict, cls = "not measured", "warn"
+            verdict, cls = VERDICT_UNMEASURED, "warn"
         elif name in failed:
-            verdict, cls = "below threshold", "fail"
+            verdict, cls = VERDICT_BELOW, "fail"
         elif name in thin:
-            verdict, cls = "thin sample", "warn"
+            verdict, cls = VERDICT_THIN, "warn"
         else:
-            verdict, cls = "ok", "pass"
+            verdict, cls = VERDICT_OK, "pass"
         margin = "-" if (value is None or threshold is None) else f"{value - threshold:+.2f}"
         rows += (
             f'<tr class="{cls}">'
@@ -136,7 +147,7 @@ def _metric_rows(gate: dict) -> str:
             f"<td>{verdict}</td>"
             "</tr>"
         )
-    return rows or '<tr><td colspan="7" class="muted">No metrics</td></tr>'
+    return rows or '<tr><td colspan="7" class="muted">지표 없음</td></tr>'
 
 
 def _grounding_block(case: dict) -> str:
@@ -161,7 +172,7 @@ def _judge_block(case: dict) -> str:
         if not isinstance(score, (int, float)) or score < 0:
             rows += (
                 f'<div class="judge"><span class="jname">{label}</span>'
-                f'<span class="jscore muted">not measured</span></div>'
+                f'<span class="jscore muted">{VERDICT_UNMEASURED}</span></div>'
             )
             continue
         rows += (
@@ -198,10 +209,10 @@ def _case_rows(cases: list[dict], type_key: str, correct_key: str) -> str:
             f'<td class="num">{_pct(case.get("overall_score"))}</td>'
             "</tr>"
             f'<tr class="detail"><td colspan="5">'
-            f"<details><summary>detail</summary>{detail}</details>"
+            f"<details><summary>상세</summary>{detail}</details>"
             "</td></tr>"
         )
-    return rows or '<tr><td colspan="5" class="muted">No cases</td></tr>'
+    return rows or '<tr><td colspan="5" class="muted">케이스 없음</td></tr>'
 
 
 def _scenario_rows(by_scenario: dict) -> str:
@@ -219,7 +230,7 @@ def _scenario_rows(by_scenario: dict) -> str:
             f'<td class="num">{_pct(accuracy)}</td>'
             f"<td>{_escape(variant_text)}</td></tr>"
         )
-    return rows or '<tr><td colspan="4" class="muted">No per-scenario data</td></tr>'
+    return rows or '<tr><td colspan="4" class="muted">시나리오별 데이터 없음</td></tr>'
 
 
 def _eval_section(eval_data: dict) -> str:
@@ -238,84 +249,84 @@ def _eval_section(eval_data: dict) -> str:
     axis = halluc.get("by_axis") or {}
     common = ", ".join(f"{k} x{v}" for k, v in (halluc.get("most_common_unsupported") or {}).items())
     if rate is None:
-        halluc_detail = "not measured"
+        halluc_detail = VERDICT_UNMEASURED
     else:
         halluc_detail = (
-            f"{halluc.get('cases_with_hallucination')} of {halluc.get('cases_measurable')} cases "
-            f"asserted something the metrics do not support "
-            f"(diagnosis {axis.get('cause', 0)}, action {axis.get('action', 0)})"
-            + (f" &middot; most often {_escape(common)}" if common else "")
+            f"측정 가능한 {halluc.get('cases_measurable')}건 중 "
+            f"<strong>{halluc.get('cases_with_hallucination')}건</strong>이 "
+            f"관측 지표가 뒷받침하지 않는 내용을 단정했습니다 "
+            f"(원인 단계 {axis.get('cause', 0)}건, 조치 단계 {axis.get('action', 0)}건)"
+            + (f" &middot; 가장 자주 지목된 리소스: {_escape(common)}" if common else "")
         )
 
     meta_bits = " &middot; ".join(
         _escape(x) for x in (
-            f"dataset {meta.get('dataset_version', '?')}",
-            f"prompt {meta.get('prompt_version', '?')}",
-            f"analysis {meta.get('analysis_model', '?')}",
-            f"judge {meta.get('judge_model', '?')} ({meta.get('judge_mode', '?')})",
-            f"ollama {meta.get('ollama_version', '?')}",
+            f"데이터셋 {meta.get('dataset_version', '?')}",
+            f"프롬프트 {meta.get('prompt_version', '?')}",
+            f"분석 모델 {meta.get('analysis_model', '?')}",
+            f"심판 모델 {meta.get('judge_model', '?')} ({meta.get('judge_mode', '?')} 모드)",
+            f"Ollama {meta.get('ollama_version', '?')}",
         )
     )
     if meta.get("self_grading"):
-        meta_bits += ' &middot; <span class="badge warning">SELF-GRADING</span>'
+        meta_bits += ' &middot; <span class="badge warning">자기채점</span>'
 
-    failed = ", ".join(gate.get("failed_rules") or []) or "-"
-    unmeasured = ", ".join(gate.get("unmeasured_rules") or []) or "-"
-    thin = ", ".join(gate.get("insufficient_sample_rules") or []) or "-"
+    failed = _metric_names(gate.get("failed_rules"))
+    unmeasured = _metric_names(gate.get("unmeasured_rules"))
+    thin = _metric_names(gate.get("insufficient_sample_rules"))
 
     return f"""
         <section>
-            <h2>AI evaluation</h2>
+            <h2>AI 품질 평가</h2>
             <div class="cards">
-                {_card(_pct(eval_data.get("overall_score")), "Overall score")}
-                {_card(status, "Quality gate", status_cls)}
-                {_card(_pct(rate), "Hallucination rate", "fail" if (rate or 0) > 0.3 else "")}
-                {_card(cases_text, "Cases evaluated")}
+                {_card(_pct(eval_data.get("overall_score")), "종합 점수")}
+                {_card(status, "품질 게이트", status_cls)}
+                {_card(_pct(rate), "환각률", "fail" if (rate or 0) > 0.3 else "")}
+                {_card(cases_text, "평가 케이스")}
             </div>
             <p class="muted">{meta_bits}</p>
-            <p class="muted">schema {_escape(eval_data.get("schema_version", "?"))}
-               &middot; generated {_escape(eval_data.get("timestamp", "?"))}</p>
+            <p class="muted">스키마 {_escape(eval_data.get("schema_version", "?"))}
+               &middot; 생성 {_escape(eval_data.get("timestamp", "?"))}</p>
 
-            <h3>Gate metrics</h3>
+            <h3>게이트 지표</h3>
             <div class="scroll">
             <table>
-                <thead><tr><th>Metric</th><th>Value</th><th>Threshold</th><th>Margin</th>
-                <th>n</th><th>Coverage</th><th>Verdict</th></tr></thead>
+                <thead><tr><th>지표</th><th>값</th><th>임계값</th><th>여유</th>
+                <th>표본</th><th>커버리지</th><th>판정</th></tr></thead>
                 <tbody>{_metric_rows(gate)}</tbody>
             </table>
             </div>
-            <p><strong>Failed:</strong> {_escape(failed)}
-               &nbsp;<strong>Unmeasured:</strong> {_escape(unmeasured)}
-               &nbsp;<strong>Thin sample:</strong> {_escape(thin)}</p>
+            <p><strong>미달:</strong> {_escape(failed)}
+               &nbsp;<strong>측정 불가:</strong> {_escape(unmeasured)}
+               &nbsp;<strong>표본 부족:</strong> {_escape(thin)}</p>
 
-            <h3>Hallucination</h3>
+            <h3>환각률</h3>
             <p>{halluc_detail}</p>
-            <p class="muted">derived from cause/action grounding &mdash; reported, not gated</p>
+            <p class="muted">원인·조치 정합성에서 파생한 집계 &mdash; 게이트 지표는 아님</p>
 
-            <h3>By scenario</h3>
-            <p class="muted">Weakest first. Accuracy splitting across phrasings means the
-               classifier is sensitive to wording, not merely noisy.</p>
+            <h3>시나리오별</h3>
+            <p class="muted">약한 순. 같은 유형인데 문구별로 정확도가 갈리면 노이즈가 아니라
+               표현에 취약한 것입니다.</p>
             <div class="scroll">
             <table>
-                <thead><tr><th>Scenario</th><th>Cases</th><th>Accuracy</th><th>By phrasing</th></tr></thead>
+                <thead><tr><th>시나리오</th><th>케이스</th><th>정확도</th><th>문구별</th></tr></thead>
                 <tbody>{_scenario_rows(eval_data.get("by_scenario"))}</tbody>
             </table>
             </div>
 
-            <h3>APM cases</h3>
-            <p class="muted">Lowest score first. Open <em>detail</em> for the grounding and judge
-               verdicts and the answer excerpt.</p>
+            <h3>APM 케이스</h3>
+            <p class="muted">점수 낮은 순. <em>상세</em>를 펼치면 정합성·심판 판정과 AI 응답 원문이 나옵니다.</p>
             <div class="scroll">
             <table>
-                <thead><tr><th>Case</th><th>Scenario</th><th>Fault type</th><th>Correct</th><th>Score</th></tr></thead>
+                <thead><tr><th>케이스</th><th>시나리오</th><th>장애유형</th><th>정답</th><th>점수</th></tr></thead>
                 <tbody>{_case_rows(eval_data.get("apm_eval") or [], "fault_type", "fault_type_correct")}</tbody>
             </table>
             </div>
 
-            <h3>Log cases</h3>
+            <h3>로그 케이스</h3>
             <div class="scroll">
             <table>
-                <thead><tr><th>Case</th><th>Scenario</th><th>Error type</th><th>Correct</th><th>Score</th></tr></thead>
+                <thead><tr><th>케이스</th><th>시나리오</th><th>에러유형</th><th>정답</th><th>점수</th></tr></thead>
                 <tbody>{_case_rows(eval_data.get("log_eval") or [], "error_type", "error_type_correct")}</tbody>
             </table>
             </div>
@@ -387,8 +398,8 @@ def generate_html_report(
 </head>
 <body>
 <main>
-    <h1>AIOps Sentinel Report</h1>
-    <p class="muted">Generated {now} &middot; analysis model {_escape(OLLAMA_MODEL)}</p>
+    <h1>AIOps Sentinel 리포트</h1>
+    <p class="muted">생성 {now} &middot; 분석 모델 {_escape(OLLAMA_MODEL)}</p>
     {_alert_section(alert_records)}
     {_eval_section(eval_data) if eval_data else ""}
 </main>

@@ -51,12 +51,12 @@ def _render(tmp_path, alerts=None, data=EVAL):
 
 def test_alert_section_is_omitted_when_there_are_no_alerts(tmp_path):
     """An eval-only run has none; a table of zeroes just pushes findings down."""
-    assert "Alerts</h2>" not in _render(tmp_path)
+    assert "알람</h2>" not in _render(tmp_path)
 
 
 def test_alert_section_appears_when_alerts_exist(tmp_path):
     record = AlertRecord("2026-01-01 00:00:00", "APM", "was_1", "심각", "CPU", "cause", "action", "raw")
-    assert "Alerts</h2>" in _render(tmp_path, alerts=[record])
+    assert "알람</h2>" in _render(tmp_path, alerts=[record])
 
 
 def test_worst_case_is_listed_first(tmp_path):
@@ -72,30 +72,30 @@ def test_every_case_detail_is_collapsed(tmp_path):
 
 def test_metrics_are_a_table_with_threshold_and_verdict(tmp_path):
     html = _render(tmp_path)
-    for header in ("Threshold", "Margin", "Coverage", "Verdict"):
+    for header in ("임계값", "여유", "커버리지", "판정"):
         assert header in html
-    assert "below threshold" in html      # cause_grounding 0.61 vs 0.80
-    assert "not measured" in html         # faithfulness has no sample
-    assert "thin sample" in html          # relevancy coverage 0.10
+    assert "임계값 미달" in html          # cause_grounding 0.61 vs 0.80
+    assert "측정 불가" in html            # faithfulness has no sample
+    assert "표본 부족" in html            # relevancy coverage 0.10
     assert "-0.19" in html                # 0.61 - 0.80, signed margin
 
 
 def test_run_conditions_and_self_grading_are_visible(tmp_path):
     html = _render(tmp_path)
-    for token in ("dataset 2.2.0", "prompt v1", "judge 8b (domain)", "SELF-GRADING", "102/102"):
+    for token in ("데이터셋 2.2.0", "프롬프트 v1", "심판 모델 8b (domain 모드)", "자기채점", "102/102"):
         assert token in html, token
 
 
 def test_hallucination_is_labelled_as_derived_and_not_gated(tmp_path):
     html = _render(tmp_path)
     assert "65%" in html
-    assert "39 of 60 cases" in html
-    assert "reported, not gated" in html
+    assert "39건" in html and "60건" in html
+    assert "게이트 지표는 아님" in html
 
 
 def test_a_weak_scenario_row_is_marked(tmp_path):
     html = _render(tmp_path)
-    scenario_section = html.split("By scenario")[1].split("APM cases")[0]
+    scenario_section = html.split("시나리오별")[1].split("APM 케이스")[0]
     assert 'class="fail"' in scenario_section
 
 
@@ -107,8 +107,8 @@ def test_report_without_eval_data_still_renders(tmp_path):
     out = tmp_path / "r.html"
     generate_html_report([], eval_data=None, output_path=str(out))
     html = out.read_text(encoding="utf-8")
-    assert "AIOps Sentinel Report" in html
-    assert "AI evaluation" not in html
+    assert "AIOps Sentinel 리포트" in html
+    assert "AI 품질 평가" not in html
 
 
 def test_old_schema_report_does_not_crash(tmp_path):
@@ -117,5 +117,5 @@ def test_old_schema_report_does_not_crash(tmp_path):
               "apm_eval": [{"scenario": "x", "fault_type": "y", "overall_score": 0.7}],
               "log_eval": []}
     html = _render(tmp_path, data=legacy)
-    assert "AI evaluation" in html
-    assert "No metrics" in html
+    assert "AI 품질 평가" in html
+    assert "지표 없음" in html
