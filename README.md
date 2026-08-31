@@ -354,8 +354,7 @@ aiops-sentinel/
 │   ├── domain_judge.py      # 심판 1회 호출 모드 (DeepEval 9회 대비 4.5배 빠름)
 │   ├── datasets/
 │   │   ├── build_golden.py  # 운영 코드 경로에서 골든셋 생성 (정답은 구성상 확정)
-│   │   ├── golden_v1.json   # v1 (5건, 손으로 작성)
-│   │   └── golden_v2.json   # v2 (102건, 생성) — 현재 사용
+│   │   └── golden_v2.json   # 102건, 생성 — 활성 데이터셋
 │   │                        #   로그는 유형 14종 x 문구 3종 = 42건 전부 다른 표현
 │   ├── eval_suite.py        # DeepEval 품질 평가 + 품질 게이트
 │   ├── compare_runs.py      # 실행 간 회귀 비교 (프롬프트/심판 모델 A/B)

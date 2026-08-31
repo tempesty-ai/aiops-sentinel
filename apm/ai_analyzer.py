@@ -41,6 +41,21 @@ Keep answers practical and concise.""",
 }
 
 
+# Human-readable labels. The keys are identifiers: renaming them would make every
+# stored result look like it came from a different prompt and break comparison
+# against the recorded baseline.
+APM_PROMPT_DESCRIPTIONS = {
+    "v1": "기본",
+    "v2": "근거 인용 강제",
+}
+
+
+def describe_prompt(version: str) -> str:
+    """`v2 (근거 인용 강제)` - what the report shows."""
+    label = APM_PROMPT_DESCRIPTIONS.get(version)
+    return f"{version} ({label})" if label else str(version)
+
+
 def get_system_prompt(version: str = "") -> str:
     """Resolve a prompt variant, falling back to the baseline for unknown names."""
     return APM_PROMPT_VERSIONS.get(version or APM_PROMPT_VERSION, APM_PROMPT_VERSIONS["v1"])

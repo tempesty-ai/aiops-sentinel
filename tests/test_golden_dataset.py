@@ -3,7 +3,8 @@ import json
 from pathlib import Path
 
 from eval.datasets.build_golden import APM_SCENARIO_LABELS, LOG_TEMPLATES, build
-from eval.eval_suite import APM_TEST_SCENARIOS, LOG_TEST_SCENARIOS, load_golden_dataset, stratified_sample
+from eval.datasets.build_golden import DATASET_VERSION
+from eval.eval_suite import APM_TEST_SCENARIOS, LOG_TEST_SCENARIOS, stratified_sample
 
 
 def test_dataset_is_large_enough_to_move_a_metric_less_than_a_case():
@@ -77,8 +78,17 @@ def test_sampling_is_reproducible_and_bounded():
     assert stratified_sample(APM_TEST_SCENARIOS, 9999, seed=0) == APM_TEST_SCENARIOS
 
 
-def test_previous_dataset_version_is_still_loadable():
-    """Versioned datasets stay readable so an old result can be re-explained."""
-    v1 = load_golden_dataset(Path("eval/datasets/golden_v1.json"))
-    assert v1["dataset_version"] == "1.1.0"
-    assert len(v1["apm_cases"]) + len(v1["log_cases"]) == 5
+def test_only_the_active_dataset_ships():
+    """
+    The retired 5-case set carried a label a single snapshot cannot support
+    ("leak"), so leaving the file around invited an eval that looks valid and is
+    not. Git holds the history; the builder reproduces any size from a seed.
+    """
+    shipped = sorted(p.name for p in Path("eval/datasets").glob("*.json"))
+    assert shipped == ["golden_v2.json"], shipped
+
+
+def test_the_builder_can_reproduce_a_small_set_without_a_stored_file():
+    small = build(apm_count=3, log_count=2, seed=1)
+    assert len(small["apm_cases"]) + len(small["log_cases"]) == 5
+    assert small["dataset_version"] == DATASET_VERSION

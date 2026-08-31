@@ -201,7 +201,10 @@ py -3 main.py --eval --gate
 
 Labels live in `eval/datasets/`, separate from scoring code so they can be
 versioned and reviewed on their own. The active file is `golden_v2.json`
-(102 cases: 60 APM + 42 log); override with `GOLDEN_DATASET`. The version is
+(102 cases: 60 APM + 42 log); override with `GOLDEN_DATASET`. It is the only dataset
+shipped - the retired 5-case set carried a label a single snapshot cannot support
+("leak"), and leaving it in the tree invited an eval that looks valid and is not.
+Git holds the history, and the builder reproduces any size from a seed. The version is
 recorded in every report under `run_metadata.dataset_version`.
 
 ### Generated from the operational code path

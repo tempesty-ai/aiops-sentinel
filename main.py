@@ -19,7 +19,7 @@ import threading
 import time
 
 from alert.mattermost import send_apm_alert, send_log_alert
-from apm.ai_analyzer import APMAIAnalyzer
+from apm.ai_analyzer import APMAIAnalyzer, describe_prompt
 from apm.anomaly_detector import AnomalyDetector
 from apm.mock_generator import MockAPMGenerator
 from config.settings import APM_CHECK_INTERVAL_SECONDS, validate_required_settings
@@ -143,7 +143,7 @@ def run_eval(generate_report: bool = False, enforce_gate: bool = False,
     print("\n[Eval] Summary")
     print(f"  overall_score: {report.overall_score:.0%}")
     evaluated = len(report.apm_results) + len(report.log_results)
-    print(f"  dataset: {report.dataset_version} | prompt: {report.prompt_version}"
+    print(f"  dataset: {report.dataset_version} | prompt: {describe_prompt(report.prompt_version)}"
           f" | analysis: {report.analysis_model} | judge: {report.judge_model} ({report.judge_mode})")
     print(f"  cases: {evaluated}/{report.cases_available}"
           + (f" (sampled, seed {report.sample_seed})" if evaluated < report.cases_available else ""))

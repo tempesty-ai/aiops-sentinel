@@ -9,6 +9,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 
+from apm.ai_analyzer import describe_prompt
 from config.settings import OLLAMA_MODEL
 
 # Display labels. The JSON keeps the English keys as identifiers.
@@ -262,7 +263,7 @@ def _eval_section(eval_data: dict) -> str:
     meta_bits = " &middot; ".join(
         _escape(x) for x in (
             f"데이터셋 {meta.get('dataset_version', '?')}",
-            f"프롬프트 {meta.get('prompt_version', '?')}",
+            f"프롬프트 {describe_prompt(meta.get('prompt_version', '?'))}",
             f"분석 모델 {meta.get('analysis_model', '?')}",
             f"심판 모델 {meta.get('judge_model', '?')} ({meta.get('judge_mode', '?')} 모드)",
             f"Ollama {meta.get('ollama_version', '?')}",
