@@ -306,7 +306,7 @@ def summarize_by_scenario(report: "EvalReport") -> dict:
 
             variant = result.get("variant")
             if variant is not None:
-                bucket = entry["by_variant"].setdefault(f"v{variant + 1}", {"cases": 0, "correct": 0})
+                bucket = entry["by_variant"].setdefault(f"p{variant + 1}", {"cases": 0, "correct": 0})
                 bucket["cases"] += 1
                 bucket["correct"] += hit
 

@@ -34,8 +34,8 @@ def test_breakdown_exposes_a_class_that_only_fails_on_one_wording():
 
     entry = summary["connection_refused"]
     assert entry["accuracy"] == 0.67
-    assert entry["by_variant"]["v3"]["accuracy"] == 0.0
-    assert entry["by_variant"]["v1"]["accuracy"] == 1.0
+    assert entry["by_variant"]["p3"]["accuracy"] == 0.0
+    assert entry["by_variant"]["p1"]["accuracy"] == 1.0
 
 
 def test_breakdown_orders_weakest_first():
